@@ -203,7 +203,7 @@ export default function Home() {
                 <div className="w-full max-w-[150px]"><img src="/marsha.gif" alt="marsha" className="h-auto w-full object-cover" /></div>
                 <div className="w-full text-center">
                   <h1 className="text-xl font-bold tracking-tight sm:text-2xl">what did marsha say?</h1>
-                  <p className="mt-1.5 text-xs leading-relaxed text-gray-700">search moments from her live streams uploaded on youtube</p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-gray-700">search moments from her live streams</p>
                   <p className="mt-1 text-[10px] text-gray-500">(transcripts may not be perfect)</p>
                 </div>
               </div>
@@ -223,9 +223,9 @@ export default function Home() {
               )}
             </section>
             <section className="mt-2">
-              {loading ? (
-                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">loading quotes...</div>
-              ) : loadError ? (
+              {submittedSearch.trim() === "" ? <div /> : loading ? (
+  <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">loading quotes...</div>
+) : loadError ? (
                 <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">{loadError}<div className="mt-1 text-[10px] text-gray-600">refresh the page and try again.</div></div>
               ) : submittedSearch.trim() === "" ? <div /> : results.length === 0 ? (
                 <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">no quotes found.</div>
