@@ -180,7 +180,15 @@ export default function Home() {
     <main className="min-h-screen bg-[#008080] p-2 font-[Tahoma,Arial,sans-serif] text-black sm:p-4">
       <div className="mx-auto max-w-3xl">
         <div className="border-2 border-white bg-[#c0c0c0] shadow-[4px_4px_0px_#000]">
-          <div className="flex h-8 items-center justify-end bg-gradient-to-r from-[#000080] to-[#1084d0] px-1">
+          <div className="flex h-8 items-center justify-between bg-gradient-to-r from-[#000080] to-[#1084d0] px-1">
+  <div className="flex min-w-0 items-center gap-1.5 px-1 text-xs font-bold text-white">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center border border-white bg-[#c0c0c0] text-[11px] text-black">
+      ▣
+    </span>
+    <span className="truncate">marsha_quotes.exe</span>
+  </div>
+
+  <div className="flex gap-1">
             <div className="flex gap-1">
               <button aria-label="minimize" className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black">_</button>
               <button aria-label="maximize" className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black">□</button>
