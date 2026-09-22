@@ -210,7 +210,7 @@ export default function Home() {
             </section>
             <section className="mt-2 border-2 border-gray-500 border-t-white border-l-white bg-[#c0c0c0] p-2">
               <div className="mb-1 flex items-center gap-2 text-[11px]"><span>🔎</span><span className="font-bold">find a quote</span></div>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={handleKeyDown} placeholder={'search something she said... try "brewek" or "sumpah aku"'} className="w-full border-2 border-gray-700 border-r-white border-b-white bg-white px-2 py-1.5 text-xs text-black outline-none placeholder:text-gray-500 focus:bg-[#ffffee]" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={handleKeyDown} placeholder={'search something she said... try "chipsy" or "kok gitu"'} className="w-full border-2 border-gray-700 border-r-white border-b-white bg-white px-2 py-1.5 text-xs text-black outline-none placeholder:text-gray-500 focus:bg-[#ffffee]" />
               <div className="mt-1 flex flex-col gap-1 sm:flex-row">
                 <button onClick={() => handleSearch()} className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-4 py-1.5 text-xs font-bold active:border-gray-700 active:border-r-white active:border-b-white">search</button>
                 <button onClick={handleRandomQuotes} disabled={randomCandidates.length === 0} className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#d4d0c8] px-3 py-1.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50 active:border-gray-700 active:border-r-white active:border-b-white">random quotes</button>
