@@ -1,6 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        element: HTMLElement,
+        options: {
+          videoId: string;
+          playerVars?: {
+            autoplay?: number;
+            rel?: number;
+            playsinline?: number;
+            start?: number;
+            origin?: string;
+          };
+          events?: {
+            onReady?: () => void;
+            onError?: (event: { data: number }) => void;
+          };
+        }
+      ) => {
+        destroy: () => void;
+      };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+    __youtubeIframeApiPromise?: Promise<void>;
+  }
+}
 import { supabase } from "../lib/supabase";
 
 type Quote = {
@@ -79,7 +106,75 @@ function getYoutubeUrl(quote: Quote) {
 
   return `https://www.youtube.com/watch?v=${quote.video_id}&t=${timestamp}s`;
 }
+function loadYouTubeIframeAPI() {
+  if (typeof window === "undefined") {
+    return Promise.reject(
+      new Error("Window is unavailable.")
+    );
+  }
 
+  if (window.YT?.Player) {
+    return Promise.resolve();
+  }
+
+  if (window.__youtubeIframeApiPromise) {
+    return window.__youtubeIframeApiPromise;
+  }
+
+  window.__youtubeIframeApiPromise =
+    new Promise<void>((resolve, reject) => {
+      const existingScript =
+        document.querySelector(
+          'script[src="https://www.youtube.com/iframe_api"]'
+        );
+
+      const previousCallback =
+        window.onYouTubeIframeAPIReady;
+
+      window.onYouTubeIframeAPIReady = () => {
+        previousCallback?.();
+        resolve();
+      };
+
+      if (existingScript) {
+        const timeout = window.setTimeout(() => {
+          if (!window.YT?.Player) {
+            reject(
+              new Error(
+                "Timed out loading YouTube Player API."
+              )
+            );
+          }
+        }, 10000);
+
+        if (window.YT?.Player) {
+          window.clearTimeout(timeout);
+          resolve();
+        }
+
+        return;
+      }
+
+      const script =
+        document.createElement("script");
+
+      script.src =
+        "https://www.youtube.com/iframe_api";
+      script.async = true;
+
+      script.onerror = () => {
+        reject(
+          new Error(
+            "Could not load YouTube Player API."
+          )
+        );
+      };
+
+      document.head.appendChild(script);
+    });
+
+  return window.__youtubeIframeApiPromise;
+}
 function formatTime(seconds: number) {
   const total = Math.max(0, Math.floor(seconds));
   const hours = Math.floor(total / 3600);
@@ -124,7 +219,19 @@ export default function Home() {
   const [results, setResults] = useState<VideoResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+const [activeQuote, setActiveQuote] =
+  useState<Quote | null>(null);
 
+const [embedStatus, setEmbedStatus] = useState<
+  "loading" | "playing" | "blocked" | "error"
+>("loading");
+
+const playerContainerRef =
+  useRef<HTMLDivElement | null>(null);
+
+const playerRef = useRef<{
+  destroy: () => void;
+} | null>(null);
   useEffect(() => {
     const savedHistory = localStorage.getItem(
       "marshaSearchHistory"
@@ -142,7 +249,157 @@ export default function Home() {
       }
     }
   }, []);
+  useEffect(() => {
+    if (!activeQuote) {
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {
+          // Ignore cleanup errors.
+        }
 
+        playerRef.current = null;
+      }
+
+      return;
+    }
+
+    const selectedQuote = activeQuote;
+    let cancelled = false;
+
+    setEmbedStatus("loading");
+
+    async function createPlayer() {
+      try {
+        await loadYouTubeIframeAPI();
+
+        if (cancelled) {
+          return;
+        }
+
+        const YT = window.YT;
+
+        if (!YT?.Player) {
+          throw new Error(
+            "YouTube Player API is unavailable."
+          );
+        }
+
+        const container =
+          playerContainerRef.current;
+
+        if (!container) {
+          return;
+        }
+
+        if (playerRef.current) {
+          try {
+            playerRef.current.destroy();
+          } catch {
+            // Ignore old player cleanup errors.
+          }
+
+          playerRef.current = null;
+        }
+
+        container.innerHTML = "";
+
+        const timestamp = Math.max(
+          0,
+          Math.floor(selectedQuote.start_seconds) - 1
+        );
+
+        const player = new YT.Player(
+          container,
+          {
+            videoId: selectedQuote.video_id,
+
+            playerVars: {
+              autoplay: 1,
+              rel: 0,
+              playsinline: 1,
+              start: timestamp,
+              origin: window.location.origin,
+            },
+
+            events: {
+              onReady: () => {
+                if (!cancelled) {
+                  setEmbedStatus("playing");
+                }
+              },
+
+              onError: (event) => {
+  if (cancelled) {
+    return;
+  }
+
+  console.log(
+    "YouTube player error:",
+    event.data
+  );
+
+  if (
+    event.data === 101 ||
+    event.data === 150
+  ) {
+    const timestamp = Math.max(
+      0,
+      Math.floor(selectedQuote.start_seconds) - 1
+    );
+
+    const youtubeUrl =
+      `https://www.youtube.com/watch?v=${selectedQuote.video_id}&t=${timestamp}s`;
+
+    window.open(
+      youtubeUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    setEmbedStatus("blocked");
+  } else if (
+    event.data === 100 ||
+    event.data === 153
+  ) {
+    setEmbedStatus("blocked");
+  } else {
+    setEmbedStatus("error");
+  }
+},
+            },
+          }
+        );
+
+        playerRef.current = player;
+      } catch (error) {
+        console.error(
+          "YouTube player error:",
+          error
+        );
+
+        if (!cancelled) {
+          setEmbedStatus("error");
+        }
+      }
+    }
+
+    createPlayer();
+
+    return () => {
+      cancelled = true;
+
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {
+          // Ignore cleanup errors.
+        }
+
+        playerRef.current = null;
+      }
+    };
+  }, [activeQuote]);
   async function performSearch(value: string) {
     const cleanSearch = value.trim();
 
@@ -493,21 +750,33 @@ export default function Home() {
                         </a>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
-                        <a
-                          href={video.youtube_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative block aspect-video w-full max-w-[150px] shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[155px]"
-                        >
-                          <img
-                            src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
-                            alt=""
-                            className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
-                          />
+                      <div className="flex flex-col gap-1.5">
+  {activeQuote?.video_id === video.video_id && (
+    <div className="relative w-full overflow-hidden border-2 border-gray-700 bg-black">
+      <div
+        ref={playerContainerRef}
+        className="aspect-video w-full"
+      />
+    </div>
+  )}
 
-                          <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
-                        </a>
+  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
+    {activeQuote?.video_id !== video.video_id && (
+      <a
+        href={video.youtube_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group relative block aspect-video w-full max-w-[150px] shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[155px]"
+      >
+        <img
+          src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
+          alt=""
+          className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
+        />
+
+        <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
+      </a>
+    )}
 
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
@@ -526,13 +795,10 @@ export default function Home() {
                           <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
                             {video.matches.map(
                               ({ quote, context }) => (
-                                <a
-                                  key={quote.id}
-                                  href={getYoutubeUrl(
-                                    quote
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+  type="button"
+  key={quote.id}
+  onClick={() => setActiveQuote(quote)}
                                   className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-1.5 text-left hover:bg-[#ffffe0]"
                                 >
                                   <div className="mb-1 flex items-center justify-between gap-2">
@@ -562,19 +828,20 @@ export default function Home() {
                                       submittedSearch
                                     )}
                                   </p>
-                                </a>
+                                </button>
                               )
                             )}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                                        </div>
+                  </div>
+                ))}
                 </div>
               )}
             </section>
           </div>
-
+          
           <footer className="border-t-2 border-gray-500 bg-[#c0c0c0] px-3 py-3 text-center text-[11px] text-gray-700">
             <div className="font-bold">
               marsha quotes
