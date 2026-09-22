@@ -26,6 +26,11 @@ type VideoResult = {
   matches: SearchResult[];
 };
 
+type ActiveVideo = {
+  quote: Quote;
+  key: string;
+};
+
 const MAX_HISTORY = 8;
 
 const monthNames: Record<string, number> = {
@@ -73,11 +78,20 @@ function getVideoDate(title: string) {
 
 function getYoutubeUrl(quote: Quote) {
   const timestamp = Math.max(
-  0,
-  Math.floor(quote.start_seconds) - 1
-);
+    0,
+    Math.floor(quote.start_seconds) - 1
+  );
 
   return `https://www.youtube.com/watch?v=${quote.video_id}&t=${timestamp}s`;
+}
+
+function getYoutubeEmbedUrl(quote: Quote) {
+  const timestamp = Math.max(
+    0,
+    Math.floor(quote.start_seconds) - 1
+  );
+
+  return `https://www.youtube.com/embed/${quote.video_id}?start=${timestamp}&autoplay=1&rel=0`;
 }
 
 function formatTime(seconds: number) {
@@ -87,9 +101,10 @@ function formatTime(seconds: number) {
   const secs = total % 60;
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(
-      secs
-    ).padStart(2, "0")}`;
+    return `${hours}:${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(secs).padStart(2, "0")}`;
   }
 
   return `${minutes}:${String(secs).padStart(2, "0")}`;
@@ -119,11 +134,20 @@ function highlightText(text: string, search: string) {
 
 export default function Home() {
   const [search, setSearch] = useState("");
-  const [submittedSearch, setSubmittedSearch] = useState("");
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [results, setResults] = useState<VideoResult[]>([]);
+  const [submittedSearch, setSubmittedSearch] =
+    useState("");
+  const [searchHistory, setSearchHistory] = useState<
+    string[]
+  >([]);
+  const [results, setResults] = useState<VideoResult[]>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [activeVideo, setActiveVideo] =
+    useState<ActiveVideo | null>(null);
+  const [embedBlocked, setEmbedBlocked] =
+    useState(false);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(
@@ -135,10 +159,14 @@ export default function Home() {
         const parsed = JSON.parse(savedHistory);
 
         if (Array.isArray(parsed)) {
-          setSearchHistory(parsed.slice(0, MAX_HISTORY));
+          setSearchHistory(
+            parsed.slice(0, MAX_HISTORY)
+          );
         }
       } catch {
-        localStorage.removeItem("marshaSearchHistory");
+        localStorage.removeItem(
+          "marshaSearchHistory"
+        );
       }
     }
   }, []);
@@ -147,6 +175,8 @@ export default function Home() {
     const cleanSearch = value.trim();
 
     setSubmittedSearch(cleanSearch);
+    setActiveVideo(null);
+    setEmbedBlocked(false);
     setLoadError("");
 
     if (!cleanSearch) {
@@ -166,7 +196,9 @@ export default function Home() {
     if (error) {
       console.error(error);
       setResults([]);
-      setLoadError("couldn't search the transcript archive.");
+      setLoadError(
+        "couldn't search the transcript archive."
+      );
       setLoading(false);
       return;
     }
@@ -195,7 +227,9 @@ export default function Home() {
       }
     }
 
-    const groupedResults = Array.from(grouped.values()).sort(
+    const groupedResults = Array.from(
+      grouped.values()
+    ).sort(
       (a, b) =>
         getVideoDate(b.video_title) -
         getVideoDate(a.video_title)
@@ -210,6 +244,8 @@ export default function Home() {
 
     setSearch(cleanSearch);
     setSubmittedSearch(cleanSearch);
+    setActiveVideo(null);
+    setEmbedBlocked(false);
 
     if (cleanSearch) {
       setSearchHistory((current) => {
@@ -237,14 +273,22 @@ export default function Home() {
   async function handleRandomQuotes() {
     setLoading(true);
     setLoadError("");
+    setActiveVideo(null);
+    setEmbedBlocked(false);
 
     const { data, error } = await supabase
       .from("quotes")
       .select("text")
       .limit(1000);
 
-    if (error || !data || data.length === 0) {
-      setLoadError("couldn't find a random quote.");
+    if (
+      error ||
+      !data ||
+      data.length === 0
+    ) {
+      setLoadError(
+        "couldn't find a random quote."
+      );
       setLoading(false);
       return;
     }
@@ -265,13 +309,19 @@ export default function Home() {
     }
 
     if (words.length === 0) {
-      setLoadError("couldn't find a random quote.");
+      setLoadError(
+        "couldn't find a random quote."
+      );
       setLoading(false);
       return;
     }
 
     const randomWord =
-      words[Math.floor(Math.random() * words.length)];
+      words[
+        Math.floor(
+          Math.random() * words.length
+        )
+      ];
 
     setSearch(randomWord);
 
@@ -296,8 +346,28 @@ export default function Home() {
     await performSearch(randomWord);
   }
 
+  function openVideo(quote: Quote) {
+    setEmbedBlocked(false);
+
+    setActiveVideo({
+      quote,
+      key: `${quote.video_id}-${quote.id}-${Date.now()}`,
+    });
+  }
+
+  function handleEmbedError() {
+    setEmbedBlocked(true);
+  }
+
+  function closePlayer() {
+    setActiveVideo(null);
+    setEmbedBlocked(false);
+  }
+
   function clearHistory() {
-    localStorage.removeItem("marshaSearchHistory");
+    localStorage.removeItem(
+      "marshaSearchHistory"
+    );
     setSearchHistory([]);
   }
 
@@ -424,7 +494,9 @@ export default function Home() {
               {searchHistory.length > 0 && (
                 <div className="mt-2 border-t border-gray-500 pt-2">
                   <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-gray-700">
-                    <span>search history</span>
+                    <span>
+                      search history
+                    </span>
 
                     <button
                       onClick={clearHistory}
@@ -435,18 +507,20 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-wrap gap-1">
-                    {searchHistory.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => {
-                          setSearch(item);
-                          handleSearch(item);
-                        }}
-                        className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black hover:bg-white"
-                      >
-                        {item}
-                      </button>
-                    ))}
+                    {searchHistory.map(
+                      (item) => (
+                        <button
+                          key={item}
+                          onClick={() => {
+                            setSearch(item);
+                            handleSearch(item);
+                          }}
+                          className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black hover:bg-white"
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               )}
@@ -480,7 +554,8 @@ export default function Home() {
                     >
                       <div className="mb-1 flex items-center justify-between gap-2 bg-[#000080] px-2 py-1 text-[10px] font-bold text-white">
                         <span className="min-w-0 truncate">
-                          📺 {video.video_title}
+                          📺{" "}
+                          {video.video_title}
                         </span>
 
                         <a
@@ -493,12 +568,105 @@ export default function Home() {
                         </a>
                       </div>
 
+                      {activeVideo &&
+                        activeVideo.quote.video_id ===
+                          video.video_id && (
+                          <div className="mb-1.5 border-2 border-gray-700 border-r-white border-b-white bg-black p-1">
+                            {!embedBlocked ? (
+                              <>
+                                <div className="aspect-video w-full overflow-hidden bg-black">
+                                  <iframe
+                                    key={
+                                      activeVideo.key
+                                    }
+                                    src={getYoutubeEmbedUrl(
+                                      activeVideo.quote
+                                    )}
+                                    title={
+                                      video.video_title
+                                    }
+                                    className="h-full w-full"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowFullScreen
+                                    onError={
+                                      handleEmbedError
+                                    }
+                                  />
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2 bg-[#c0c0c0] px-1.5 py-1 text-[9px]">
+                                  <span>
+                                    playing from{" "}
+                                    {formatTime(
+                                      Math.max(
+                                        0,
+                                        Math.floor(
+                                          activeVideo
+                                            .quote
+                                            .start_seconds
+                                        ) - 1
+                                      )
+                                    )}
+                                  </span>
+
+                                  <button
+                                    onClick={
+                                      closePlayer
+                                    }
+                                    className="border border-gray-600 bg-[#d4d0c8] px-1.5 py-0.5 underline"
+                                  >
+                                    close player
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="bg-[#efefef] p-4 text-center">
+                                <div className="text-sm font-bold">
+                                  this video can't be played here
+                                </div>
+
+                                <div className="mt-1 text-[10px] text-gray-600">
+                                  the video owner has disabled embedding.
+                                </div>
+
+                                <a
+                                  href={getYoutubeUrl(
+                                    activeVideo.quote
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-3 inline-block border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-3 py-1.5 text-[10px] font-bold text-black"
+                                >
+                                  watch on YouTube ↗
+                                </a>
+
+                                <button
+                                  onClick={
+                                    closePlayer
+                                  }
+                                  className="ml-1.5 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#d4d0c8] px-3 py-1.5 text-[10px] font-bold text-black"
+                                >
+                                  close
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
-                        <a
-                          href={video.youtube_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative block aspect-video w-full max-w-[150px] shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[155px]"
+                        <div
+                          className="group relative block aspect-video w-full max-w-[150px] shrink-0 cursor-pointer overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[155px]"
+                          onClick={() => {
+                            if (
+                              video.matches.length >
+                              0
+                            ) {
+                              openVideo(
+                                video.matches[0]
+                                  .quote
+                              );
+                            }
+                          }}
                         >
                           <img
                             src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
@@ -507,63 +675,85 @@ export default function Home() {
                           />
 
                           <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
-                        </a>
+
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-sm text-white">
+                              ▶
+                            </span>
+                          </div>
+                        </div>
 
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
                             <span>
-                              {video.matches.length} matching{" "}
-                              {video.matches.length === 1
+                              {video.matches.length}{" "}
+                              matching{" "}
+                              {video.matches.length ===
+                              1
                                 ? "moment"
                                 : "moments"}
                             </span>
 
                             <span>
-                              scroll to browse
+                              click a moment to play
                             </span>
                           </div>
 
                           <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
                             {video.matches.map(
-                              ({ quote, context }) => (
-                                <a
-                                  key={quote.id}
-                                  href={getYoutubeUrl(
-                                    quote
-                                  )}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-1.5 text-left hover:bg-[#ffffe0]"
-                                >
-                                  <div className="mb-1 flex items-center justify-between gap-2">
-                                    <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold">
-                                      {formatTime(
-                                        quote.start_seconds
+                              ({
+                                quote,
+                                context,
+                              }) => {
+                                const isActive =
+                                  activeVideo?.quote
+                                    .id ===
+                                  quote.id;
+
+                                return (
+                                  <button
+                                    key={quote.id}
+                                    onClick={() =>
+                                      openVideo(
+                                        quote
+                                      )
+                                    }
+                                    className={`group block w-full border-2 border-gray-500 border-t-white border-l-white p-1.5 text-left ${
+                                      isActive
+                                        ? "bg-[#ffffe0]"
+                                        : "bg-white hover:bg-[#ffffe0]"
+                                    }`}
+                                  >
+                                    <div className="mb-1 flex items-center justify-between gap-2">
+                                      <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold">
+                                        {formatTime(
+                                          quote.start_seconds
+                                        )}
+                                      </span>
+
+                                      <span className="text-[9px] text-blue-800 underline">
+                                        play →
+                                      </span>
+                                    </div>
+
+                                    <p className="text-[11px] leading-relaxed">
+                                      “
+                                      {highlightText(
+                                        quote.text,
+                                        submittedSearch
                                       )}
-                                    </span>
+                                      ”
+                                    </p>
 
-                                    <span className="text-[9px] text-blue-800 underline">
-                                      watch →
-                                    </span>
-                                  </div>
-
-                                  <p className="text-[11px] leading-relaxed">
-                                    “
-                                    {highlightText(
-                                      quote.text,
-                                      submittedSearch
-                                    )}
-                                    ”
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
-                                    {highlightText(
-                                      context,
-                                      submittedSearch
-                                    )}
-                                  </p>
-                                </a>
-                              )
+                                    <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
+                                      {highlightText(
+                                        context,
+                                        submittedSearch
+                                      )}
+                                    </p>
+                                  </button>
+                                );
+                              }
                             )}
                           </div>
                         </div>
