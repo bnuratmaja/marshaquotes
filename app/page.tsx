@@ -190,25 +190,34 @@ function formatTime(seconds: number) {
   return `${minutes}:${String(secs).padStart(2, "0")}`;
 }
 
-function highlightText(text: string, search: string) {
-  if (!search.trim()) return text;
+function highlightText(text: string, searchTerm: string) {
+  if (!searchTerm.trim()) {
+    return text;
+  }
 
-  const lowerText = text.toLowerCase();
-  const lowerSearch = search.toLowerCase();
-  const index = lowerText.indexOf(lowerSearch);
+  const words = searchTerm
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
-  if (index === -1) return text;
+  const pattern = new RegExp(
+    `(${words.map((word) =>
+      word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    ).join("|")})`,
+    "gi"
+  );
 
-  return (
-    <>
-      {text.slice(0, index)}
-
-      <mark className="bg-[#ffff00] px-0.5 text-black">
-        {text.slice(index, index + search.length)}
+  return text.split(pattern).map((part, index) =>
+    pattern.test(part) ? (
+      <mark
+        key={index}
+        className="bg-yellow-300 px-0.5 text-black"
+      >
+        {part}
       </mark>
-
-      {text.slice(index + search.length)}
-    </>
+    ) : (
+      part
+    )
   );
 }
 
