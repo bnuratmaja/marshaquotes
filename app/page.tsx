@@ -848,7 +848,14 @@ const playerRef = useRef<{
             </div>
 
             <div className="mt-0.5">
-              created by @bnuratmaja
+              created by <a
+  href="https://x.com/bnuratmaja"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="underline hover:text-yellow-300"
+>
+  @bnuratmaja
+</a>
             </div>
 
             <div className="mt-1 text-[9px] text-gray-500">
