@@ -183,8 +183,8 @@ export default function Home() {
           <div className="flex h-8 items-center justify-between bg-gradient-to-r from-[#000080] to-[#1084d0] px-1">
   <div className="flex min-w-0 items-center gap-1.5 px-1 text-xs font-bold text-white">
     <span className="flex h-5 w-5 shrink-0 items-center justify-center border border-white bg-[#c0c0c0] text-[11px] text-black">
-      ▣
-    </span>
+  💻
+</span>
     <span className="truncate">marsha_quotes.exe</span>
   </div>
 
