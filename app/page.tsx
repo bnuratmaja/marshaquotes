@@ -72,11 +72,12 @@ function getVideoDate(title: string) {
 }
 
 function getYoutubeUrl(quote: Quote) {
-  const timestamp = Math.max(0, quote.start_seconds - 1);
+  const timestamp = Math.max(
+  0,
+  Math.floor(quote.start_seconds) - 1
+);
 
-  return `${quote.youtube_url}${
-    quote.youtube_url.includes("?") ? "&" : "?"
-  }t=${timestamp}`;
+  return `https://www.youtube.com/watch?v=${quote.video_id}&t=${timestamp}s`;
 }
 
 function formatTime(seconds: number) {
