@@ -188,8 +188,7 @@ export default function Home() {
     <span className="truncate">marsha_quotes.exe</span>
   </div>
 
-  <div className="flex gap-1">
-            <div className="flex gap-1">
+    <div className="flex gap-1">
               <button aria-label="minimize" className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black">_</button>
               <button aria-label="maximize" className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black">□</button>
               <button aria-label="close" className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black">×</button>
