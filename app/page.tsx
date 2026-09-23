@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 declare global {
   interface Window {
     YT?: {
@@ -28,6 +29,7 @@ declare global {
     __youtubeIframeApiPromise?: Promise<void>;
   }
 }
+
 import { supabase } from "../lib/supabase";
 
 type Quote = {
@@ -100,12 +102,13 @@ function getVideoDate(title: string) {
 
 function getYoutubeUrl(quote: Quote) {
   const timestamp = Math.max(
-  0,
-  Math.floor(quote.start_seconds) - 1
-);
+    0,
+    Math.floor(quote.start_seconds) - 1
+  );
 
   return `https://www.youtube.com/watch?v=${quote.video_id}&t=${timestamp}s`;
 }
+
 function loadYouTubeIframeAPI() {
   if (typeof window === "undefined") {
     return Promise.reject(
@@ -175,6 +178,7 @@ function loadYouTubeIframeAPI() {
 
   return window.__youtubeIframeApiPromise;
 }
+
 function formatTime(seconds: number) {
   const total = Math.max(0, Math.floor(seconds));
   const hours = Math.floor(total / 3600);
@@ -228,19 +232,21 @@ export default function Home() {
   const [results, setResults] = useState<VideoResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
-const [activeQuote, setActiveQuote] =
-  useState<Quote | null>(null);
 
-const [embedStatus, setEmbedStatus] = useState<
-  "loading" | "playing" | "blocked" | "error"
->("loading");
+  const [activeQuote, setActiveQuote] =
+    useState<Quote | null>(null);
 
-const playerContainerRef =
-  useRef<HTMLDivElement | null>(null);
+  const [embedStatus, setEmbedStatus] = useState<
+    "loading" | "playing" | "blocked" | "error"
+  >("loading");
 
-const playerRef = useRef<{
-  destroy: () => void;
-} | null>(null);
+  const playerContainerRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const playerRef = useRef<{
+    destroy: () => void;
+  } | null>(null);
+
   useEffect(() => {
     const savedHistory = localStorage.getItem(
       "marshaSearchHistory"
@@ -258,6 +264,7 @@ const playerRef = useRef<{
       }
     }
   }, []);
+
   useEffect(() => {
     if (!activeQuote) {
       if (playerRef.current) {
@@ -339,43 +346,45 @@ const playerRef = useRef<{
               },
 
               onError: (event) => {
-  if (cancelled) {
-    return;
-  }
+                if (cancelled) {
+                  return;
+                }
 
-  console.log(
-    "YouTube player error:",
-    event.data
-  );
+                console.log(
+                  "YouTube player error:",
+                  event.data
+                );
 
-  if (
-    event.data === 101 ||
-    event.data === 150
-  ) {
-    const timestamp = Math.max(
-      0,
-      Math.floor(selectedQuote.start_seconds) - 1
-    );
+                if (
+                  event.data === 101 ||
+                  event.data === 150
+                ) {
+                  const timestamp = Math.max(
+                    0,
+                    Math.floor(
+                      selectedQuote.start_seconds
+                    ) - 1
+                  );
 
-    const youtubeUrl =
-      `https://www.youtube.com/watch?v=${selectedQuote.video_id}&t=${timestamp}s`;
+                  const youtubeUrl =
+                    `https://www.youtube.com/watch?v=${selectedQuote.video_id}&t=${timestamp}s`;
 
-    window.open(
-      youtubeUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
+                  window.open(
+                    youtubeUrl,
+                    "_blank",
+                    "noopener,noreferrer"
+                  );
 
-    setEmbedStatus("blocked");
-  } else if (
-    event.data === 100 ||
-    event.data === 153
-  ) {
-    setEmbedStatus("blocked");
-  } else {
-    setEmbedStatus("error");
-  }
-},
+                  setEmbedStatus("blocked");
+                } else if (
+                  event.data === 100 ||
+                  event.data === 153
+                ) {
+                  setEmbedStatus("blocked");
+                } else {
+                  setEmbedStatus("error");
+                }
+              },
             },
           }
         );
@@ -409,6 +418,7 @@ const playerRef = useRef<{
       }
     };
   }, [activeQuote]);
+
   async function performSearch(value: string) {
     const cleanSearch = value.trim();
 
@@ -432,7 +442,9 @@ const playerRef = useRef<{
     if (error) {
       console.error(error);
       setResults([]);
-      setLoadError("couldn't search the transcript archive.");
+      setLoadError(
+        "couldn't search the transcript archive."
+      );
       setLoading(false);
       return;
     }
@@ -440,7 +452,9 @@ const playerRef = useRef<{
     const grouped = new Map<string, VideoResult>();
 
     for (const quote of (data || []) as Quote[]) {
-      const existing = grouped.get(quote.video_id);
+      const existing = grouped.get(
+        quote.video_id
+      );
 
       const searchResult: SearchResult = {
         quote,
@@ -461,11 +475,12 @@ const playerRef = useRef<{
       }
     }
 
-    const groupedResults = Array.from(grouped.values()).sort(
-      (a, b) =>
-        getVideoDate(b.video_title) -
-        getVideoDate(a.video_title)
-    );
+    const groupedResults =
+      Array.from(grouped.values()).sort(
+        (a, b) =>
+          getVideoDate(b.video_title) -
+          getVideoDate(a.video_title)
+      );
 
     setResults(groupedResults);
     setLoading(false);
@@ -501,69 +516,182 @@ const playerRef = useRef<{
   }
 
   async function handleRandomQuotes() {
-    setLoading(true);
-    setLoadError("");
+  setLoading(true);
+  setLoadError("");
 
-    const { data, error } = await supabase
-      .from("quotes")
-      .select("text")
-      .limit(1000);
+  // Find the latest quote id so we can sample a real contiguous
+  // section of the transcript database.
+  const { data: latestRow, error: latestError } = await supabase
+    .from("quotes")
+    .select("id")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-    if (error || !data || data.length === 0) {
-      setLoadError("couldn't find a random quote.");
-      setLoading(false);
-      return;
+  if (latestError || !latestRow) {
+    setLoadError("couldn't find a random quote.");
+    setLoading(false);
+    return;
+  }
+
+  const maxId = Number(latestRow.id);
+  const startId = Math.max(
+    1,
+    Math.floor(Math.random() * Math.max(1, maxId - 1000))
+  );
+
+  const { data, error } = await supabase
+    .from("quotes")
+    .select("id, video_id, text")
+    .order("id", { ascending: true })
+    .range(startId - 1, startId + 998);
+
+  if (error || !data || data.length === 0) {
+    setLoadError("couldn't find a random quote.");
+    setLoading(false);
+    return;
+  }
+
+  type QuoteRow = {
+    id: number;
+    video_id: string | null;
+    text: string;
+  };
+
+  const rows = data as QuoteRow[];
+
+  const wordRegex =
+    /[a-zà-ÿ]+(?:['’][a-zà-ÿ]+)?/gi;
+
+  const stopWords = new Set([
+    "yang",
+    "dan",
+    "atau",
+    "dari",
+    "untuk",
+    "dengan",
+    "ini",
+    "itu",
+    "aku",
+    "kamu",
+    "dia",
+    "nya",
+    "ada",
+    "jadi",
+    "kalau",
+    "karena",
+    "sudah",
+    "lebih",
+    "juga",
+    "akan",
+    "sama",
+    "bisa",
+    "banget",
+    "nggak",
+    "enggak",
+    "gak",
+    "ga",
+  ]);
+
+  // Look through real transcript windows.
+  for (let i = 0; i < rows.length; i++) {
+    const currentVideo = rows[i].video_id;
+
+    if (!currentVideo) continue;
+
+    const windowRows = rows.slice(i, i + 5);
+
+    if (
+      windowRows.length < 2 ||
+      windowRows.some(
+        (row) => row.video_id !== currentVideo
+      )
+    ) {
+      continue;
     }
 
-    const words: string[] = [];
+    const words = new Set<string>();
 
-    for (const quote of data) {
-      const matches =
-        quote.text.match(
-          /[a-zà-ÿ]+(?:['’][a-zà-ÿ]+)?/gi
-        ) || [];
+    for (const row of windowRows) {
+      const matches = row.text.match(wordRegex) || [];
 
       for (const word of matches) {
-        if (word.length >= 3) {
-          words.push(word.toLowerCase());
+        const normalized = word.toLowerCase();
+
+        if (
+          normalized.length >= 3 &&
+          !stopWords.has(normalized)
+        ) {
+          words.add(normalized);
         }
       }
     }
 
-    if (words.length === 0) {
-      setLoadError("couldn't find a random quote.");
-      setLoading(false);
-      return;
+    const availableWords = Array.from(words);
+
+    if (availableWords.length < 2) {
+      continue;
     }
 
-    const randomWord =
-      words[Math.floor(Math.random() * words.length)];
+    // Try several random pairs from this actual transcript window.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const first =
+        availableWords[
+          Math.floor(
+            Math.random() * availableWords.length
+          )
+        ];
 
-    setSearch(randomWord);
-
-    setSearchHistory((current) => {
-      const next = [
-        randomWord,
-        ...current.filter(
-          (item) =>
-            item.toLowerCase() !==
-            randomWord.toLowerCase()
-        ),
-      ].slice(0, MAX_HISTORY);
-
-      localStorage.setItem(
-        "marshaSearchHistory",
-        JSON.stringify(next)
+      const remaining = availableWords.filter(
+        (word) => word !== first
       );
 
-      return next;
-    });
+      if (remaining.length === 0) {
+        continue;
+      }
 
-    await performSearch(randomWord);
+      const second =
+        remaining[
+          Math.floor(
+            Math.random() * remaining.length
+          )
+        ];
+
+      const randomPair = `${first} ${second}`;
+
+      setSearch(randomPair);
+
+      setSearchHistory((current) => {
+        const next = [
+          randomPair,
+          ...current.filter(
+            (item) =>
+              item.toLowerCase() !==
+              randomPair.toLowerCase()
+          ),
+        ].slice(0, MAX_HISTORY);
+
+        localStorage.setItem(
+          "marshaSearchHistory",
+          JSON.stringify(next)
+        );
+
+        return next;
+      });
+
+      await performSearch(randomPair);
+      return;
+    }
   }
 
+  setLoadError("couldn't find a random quote.");
+  setLoading(false);
+}
+
   function clearHistory() {
-    localStorage.removeItem("marshaSearchHistory");
+    localStorage.removeItem(
+      "marshaSearchHistory"
+    );
     setSearchHistory([]);
   }
 
@@ -578,10 +706,12 @@ const playerRef = useRef<{
   return (
     <main className="min-h-screen bg-[#008080] p-2 font-[Tahoma,Arial,sans-serif] text-black sm:p-4">
       <div className="mx-auto max-w-3xl">
-        <div className="border-2 border-white bg-[#c0c0c0] shadow-[4px_4px_0px_#000]">
-          <div className="flex h-8 items-center justify-between bg-gradient-to-r from-[#000080] to-[#1084d0] px-1">
+        <div className="overflow-hidden border-2 border-white bg-[#c0c0c0] shadow-[5px_5px_0px_#000]">
+
+          {/* TITLE BAR */}
+          <div className="flex h-8 items-center justify-between bg-gradient-to-r from-[#000080] via-[#000080] to-[#1084d0] px-1">
             <div className="flex min-w-0 items-center gap-1.5 px-1 text-xs font-bold text-white">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center border border-white bg-[#c0c0c0] text-[11px] text-black">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center border border-white bg-[#c0c0c0] text-[11px] text-black shadow-[1px_1px_0px_#000]">
                 💻
               </span>
 
@@ -593,40 +723,44 @@ const playerRef = useRef<{
             <div className="flex gap-1">
               <button
                 aria-label="minimize"
-                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black"
+                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black shadow-[1px_1px_0px_#000]"
               >
                 _
               </button>
 
               <button
                 aria-label="maximize"
-                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black"
+                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black shadow-[1px_1px_0px_#000]"
               >
                 □
               </button>
 
               <button
                 aria-label="close"
-                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black"
+                className="flex h-6 w-6 items-center justify-center border-2 border-white border-r-gray-600 border-b-gray-600 bg-[#c0c0c0] text-xs font-bold text-black shadow-[1px_1px_0px_#000]"
               >
                 ×
               </button>
             </div>
           </div>
 
+          {/* MENU BAR */}
           <div className="flex h-7 items-center border-b border-gray-500 bg-[#c0c0c0] px-2 text-xs">
             <a
               href="/"
-              className="underline-offset-2 hover:underline"
+              className="px-1.5 py-0.5 underline-offset-2 hover:bg-[#000080] hover:text-white"
             >
               <u>H</u>ome
             </a>
           </div>
 
           <div className="bg-[#d4d0c8] p-2 sm:p-3">
-            <section className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-2">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-full max-w-[150px]">
+
+            {/* HERO */}
+            <section className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-2 shadow-[1px_1px_0px_#808080]">
+              <div className="flex flex-col items-center gap-2.5">
+
+                <div className="w-full max-w-[160px] border-2 border-gray-700 border-r-white border-b-white bg-black p-0.5">
                   <img
                     src="/marsha.gif"
                     alt="marsha"
@@ -639,7 +773,9 @@ const playerRef = useRef<{
                     what did marsha say?
                   </h1>
 
-                  <p className="mt-1.5 text-xs leading-relaxed text-gray-700">
+                  <div className="mx-auto mt-2 h-px w-32 bg-gray-400" />
+
+                  <p className="mt-2 text-xs leading-relaxed text-gray-700">
                     search moments from her live streams
                   </p>
 
@@ -650,9 +786,13 @@ const playerRef = useRef<{
               </div>
             </section>
 
-            <section className="mt-2 border-2 border-gray-500 border-t-white border-l-white bg-[#c0c0c0] p-2">
-              <div className="mb-1 flex items-center gap-2 text-[11px]">
-                <span>🔎</span>
+            {/* SEARCH */}
+            <section className="mt-2 border-2 border-gray-500 border-t-white border-l-white bg-[#c0c0c0] p-2 shadow-[1px_1px_0px_#808080]">
+
+              <div className="mb-1.5 flex items-center gap-2 text-[11px]">
+                <span className="flex h-4 w-4 items-center justify-center bg-white text-[10px]">
+                  🔎
+                </span>
 
                 <span className="font-bold">
                   find a quote
@@ -668,10 +808,10 @@ const playerRef = useRef<{
                 placeholder={
                   'search what she said... try "chipsy" or "kok gitu"'
                 }
-                className="w-full border-2 border-gray-700 border-r-white border-b-white bg-white px-2 py-1.5 text-xs text-black outline-none placeholder:text-gray-500 focus:bg-[#ffffee]"
+                className="w-full border-2 border-gray-700 border-r-white border-b-white bg-white px-2.5 py-2 text-xs text-black outline-none placeholder:text-gray-500 focus:bg-[#ffffee]"
               />
 
-              <div className="mt-1 flex flex-col gap-1 sm:flex-row">
+              <div className="mt-1.5 flex gap-1.5">
                 <button
                   onClick={() => handleSearch()}
                   className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-4 py-1.5 text-xs font-bold active:border-gray-700 active:border-r-white active:border-b-white"
@@ -683,14 +823,16 @@ const playerRef = useRef<{
                   onClick={handleRandomQuotes}
                   className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#d4d0c8] px-3 py-1.5 text-[10px] font-bold active:border-gray-700 active:border-r-white active:border-b-white"
                 >
-                  random quotes
+                  🎲 random quotes
                 </button>
               </div>
 
               {searchHistory.length > 0 && (
                 <div className="mt-2 border-t border-gray-500 pt-2">
-                  <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-gray-700">
-                    <span>search history</span>
+                  <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold text-gray-700">
+                    <span>
+                      search history
+                    </span>
 
                     <button
                       onClick={clearHistory}
@@ -708,7 +850,7 @@ const playerRef = useRef<{
                           setSearch(item);
                           handleSearch(item);
                         }}
-                        className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black hover:bg-white"
+                        className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black shadow-[1px_1px_0px_#808080] hover:bg-white"
                       >
                         {item}
                       </button>
@@ -718,15 +860,22 @@ const playerRef = useRef<{
               )}
             </section>
 
+            {/* RESULTS */}
             <section className="mt-2">
               {submittedSearch.trim() === "" ? (
                 <div />
               ) : loading ? (
-                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">
-                  searching...
+                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm shadow-[1px_1px_0px_#808080]">
+                  <div className="font-bold">
+                    searching...
+                  </div>
+
+                  <div className="mt-1 text-[10px] text-gray-600">
+                    searching the transcript archive
+                  </div>
                 </div>
               ) : loadError ? (
-                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">
+                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm shadow-[1px_1px_0px_#808080]">
                   {loadError}
 
                   <div className="mt-1 text-[10px] text-gray-600">
@@ -734,137 +883,188 @@ const playerRef = useRef<{
                   </div>
                 </div>
               ) : results.length === 0 ? (
-                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm">
+                <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm shadow-[1px_1px_0px_#808080]">
                   no quotes found.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {results.map((video) => (
-                    <div
-                      key={video.video_id}
-                      className="border-2 border-gray-600 border-t-white border-l-white bg-[#c0c0c0] p-1.5"
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2 bg-[#000080] px-2 py-1 text-[10px] font-bold text-white">
-                        <span className="min-w-0 truncate">
-                          📺 {video.video_title}
-                        </span>
+                <div>
+                  <div className="mb-1 flex items-center justify-between border-2 border-gray-600 border-t-white border-l-white bg-[#c0c0c0] px-2 py-1 text-[10px]">
+                    <span className="font-bold">
+                      search results
+                    </span>
 
-                        <a
-                          href={video.youtube_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 underline hover:text-yellow-300"
-                        >
-                          watch
-                        </a>
-                      </div>
+                    <span className="text-gray-600">
+                      {results.length}{" "}
+                      {results.length === 1
+                        ? "video"
+                        : "videos"}
+                    </span>
+                  </div>
 
-                      <div className="flex flex-col gap-1.5">
-  {activeQuote?.video_id === video.video_id && (
-    <div className="relative w-full overflow-hidden border-2 border-gray-700 bg-black">
-      <div
-        ref={playerContainerRef}
-        className="aspect-video w-full"
-      />
-    </div>
-  )}
+                  <div className="space-y-2">
+                    {results.map((video) => (
+                      <div
+                        key={video.video_id}
+                        className="border-2 border-gray-600 border-t-white border-l-white bg-[#c0c0c0] p-1.5 shadow-[1px_1px_0px_#808080]"
+                      >
+                        {/* VIDEO HEADER */}
+                        <div className="mb-1.5 flex min-h-6 items-center justify-between gap-2 bg-[#000080] px-2 py-1 text-[10px] font-bold text-white">
+                          <span className="min-w-0 truncate">
+                            📺 {video.video_title}
+                          </span>
 
-  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
-    {activeQuote?.video_id !== video.video_id && (
-      <a
-        href={video.youtube_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group relative block aspect-video w-full max-w-[150px] shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[155px]"
-      >
-        <img
-          src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
-          alt=""
-          className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
-        />
+                          <a
+                            href={video.youtube_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 underline hover:text-yellow-300"
+                          >
+                            watch
+                          </a>
+                        </div>
 
-        <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
-      </a>
-    )}
+                        <div className="flex flex-col gap-1.5">
 
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
-                            <span>
-                              {video.matches.length} matching{" "}
-                              {video.matches.length === 1
-                                ? "moment"
-                                : "moments"}
-                            </span>
+                          {/* EMBEDDED PLAYER */}
+                          {activeQuote?.video_id ===
+                            video.video_id && (
+                            <div className="relative w-full overflow-hidden border-2 border-gray-700 bg-black shadow-[2px_2px_0px_#808080]">
+                              <div
+                                ref={
+                                  playerContainerRef
+                                }
+                                className="aspect-video w-full"
+                              />
+                            </div>
+                          )}
 
-                            <span>
-                              scroll to browse
-                            </span>
-                          </div>
+                          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
 
-                          <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
-                            {video.matches.map(
-                              ({ quote, context }) => (
-                                <button
-  type="button"
-  key={quote.id}
-  onClick={() => setActiveQuote(quote)}
-                                  className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-1.5 text-left hover:bg-[#ffffe0]"
-                                >
-                                  <div className="mb-1 flex items-center justify-between gap-2">
-                                    <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold">
-                                      {formatTime(
-                                        quote.start_seconds
-                                      )}
-                                    </span>
+                            {/* THUMBNAIL */}
+                            {activeQuote?.video_id !==
+                              video.video_id && (
+                              <a
+                                href={
+                                  video.youtube_url
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative block aspect-video w-full shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[165px]"
+                              >
+                                <img
+                                  src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
+                                  alt=""
+                                  className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
+                                />
 
-                                    <span className="text-[9px] text-blue-800 underline">
-                                      watch →
-                                    </span>
-                                  </div>
+                                <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
 
-                                  <p className="text-[11px] leading-relaxed">
-                                    “
-                                    {highlightText(
-                                      quote.text,
-                                      submittedSearch
-                                    )}
-                                    ”
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
-                                    {highlightText(
-                                      context,
-                                      submittedSearch
-                                    )}
-                                  </p>
-                                </button>
-                              )
+                                
+                              </a>
                             )}
+
+                            {/* MATCH LIST */}
+                            <div className="min-w-0 flex-1">
+
+                              <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
+                                <span className="font-bold">
+                                  {video.matches.length}{" "}
+                                  matching{" "}
+                                  {video.matches.length ===
+                                  1
+                                    ? "moment"
+                                    : "moments"}
+                                </span>
+
+                                <span>
+                                  scroll to browse
+                                </span>
+                              </div>
+
+                              <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
+                                {video.matches.map(
+                                  ({
+                                    quote,
+                                    context,
+                                  }) => (
+                                    <button
+                                      type="button"
+                                      key={quote.id}
+                                      onClick={() =>
+                                        setActiveQuote(
+                                          quote
+                                        )
+                                      }
+                                      className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-2 text-left shadow-[1px_1px_0px_#808080] hover:bg-[#ffffe0]"
+                                    >
+                                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                                        <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold shadow-[1px_1px_0px_#808080]">
+                                          {formatTime(
+                                            quote.start_seconds
+                                          )}
+                                        </span>
+
+                                        <span className="text-[9px] font-bold text-blue-800 underline">
+                                          watch →
+                                        </span>
+                                      </div>
+
+                                      <p className="text-[11px] font-bold leading-relaxed">
+                                        “
+                                        {highlightText(
+                                          quote.text,
+                                          submittedSearch
+                                        )}
+                                        ”
+                                      </p>
+
+                                      <div className="mt-1.5 border-t border-dotted border-gray-400 pt-1">
+                                        <p className="text-[9px] leading-relaxed text-gray-600">
+                                          {context}
+                                        </p>
+                                      </div>
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                                        </div>
+                    ))}
                   </div>
-                ))}
                 </div>
               )}
             </section>
           </div>
-          
+
+          {/* STATUS BAR */}
+          <div className="min-h-6 border-t border-gray-500 bg-[#c0c0c0] px-2 py-1 text-[9px] text-gray-600">
+            <span>
+              {loading
+                ? "Working..."
+                : submittedSearch
+                  ? "Search complete"
+                  : ""}
+            </span>
+          </div>
+
+          {/* FOOTER */}
           <footer className="border-t-2 border-gray-500 bg-[#c0c0c0] px-3 py-3 text-center text-[11px] text-gray-700">
             <div className="font-bold">
               marsha quotes
             </div>
 
             <div className="mt-0.5">
-              created by <a
-  href="https://x.com/bnuratmaja"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="underline hover:text-yellow-300"
->
-  @bnuratmaja
-</a>
+              created by{" "}
+              <a
+                href="https://x.com/bnuratmaja"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-yellow-300"
+              >
+                @bnuratmaja
+              </a>
             </div>
 
             <div className="mt-1 text-[9px] text-gray-500">
