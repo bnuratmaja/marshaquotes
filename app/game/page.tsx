@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { PointerEvent, ReactNode } from "react";
 
 type Thing = { id: number; x: number; y: number; size: number; speed: number; kind: "rock" | "box" };
 type Snack = { id: number; x: number; y: number; speed: number };
@@ -165,7 +166,7 @@ export default function Game() {
   }, [started]);
 
   const hold = (direction: "left" | "right") => ({
-    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       keys.current[direction] = true;
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -252,7 +253,7 @@ export default function Game() {
   );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
+function Overlay({ children }: { children: ReactNode }) {
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-[#a8c070]/95 p-5 text-center">
       <div className="border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] p-4 shadow-[3px_3px_0_#000]">
