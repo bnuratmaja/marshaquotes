@@ -80,14 +80,18 @@ function getVideoDate(title: string) {
   );
 
   if (namedMonthMatch) {
+    const monthName = namedMonthMatch[2].toLowerCase();
+
     return new Date(
       Number(namedMonthMatch[3]),
-      monthNames[namedMonthMatch[2].toLowerCase()],
+      monthNames[monthName],
       Number(namedMonthMatch[1])
     ).getTime();
   }
 
-  const showroomMatch = text.match(/(\d{1,2})-(\d{1,2})-(\d{2})/);
+  const showroomMatch = text.match(
+    /(\d{1,2})-(\d{1,2})-(\d{2})/
+  );
 
   if (showroomMatch) {
     const day = Number(showroomMatch[1]);
@@ -100,16 +104,7 @@ function getVideoDate(title: string) {
   return 0;
 }
 
-function getYoutubeUrl(quote: Quote) {
-  const timestamp = Math.max(
-    0,
-    Math.floor(quote.start_seconds) - 1
-  );
-
-  return `https://www.youtube.com/watch?v=${quote.video_id}&t=${timestamp}s`;
-}
-
-function loadYouTubeIframeAPI() {
+function loadYouTubeIframeAPI(): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.reject(
       new Error("Window is unavailable.")
@@ -126,23 +121,52 @@ function loadYouTubeIframeAPI() {
 
   window.__youtubeIframeApiPromise =
     new Promise<void>((resolve, reject) => {
-      const existingScript =
-        document.querySelector(
-          'script[src="https://www.youtube.com/iframe_api"]'
-        );
+      const existingScript = document.querySelector(
+        'script[src="https://www.youtube.com/iframe_api"]'
+      );
 
       const previousCallback =
         window.onYouTubeIframeAPIReady;
 
-      window.onYouTubeIframeAPIReady = () => {
-        previousCallback?.();
+      let finished = false;
+
+      const finish = () => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
         resolve();
       };
 
+      const fail = (error: Error) => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+        reject(error);
+      };
+
+      window.onYouTubeIframeAPIReady = () => {
+        if (previousCallback) {
+          previousCallback();
+        }
+
+        finish();
+      };
+
       if (existingScript) {
-        const timeout = window.setTimeout(() => {
-          if (!window.YT?.Player) {
-            reject(
+        if (window.YT?.Player) {
+          finish();
+          return;
+        }
+
+        window.setTimeout(() => {
+          if (window.YT?.Player) {
+            finish();
+          } else {
+            fail(
               new Error(
                 "Timed out loading YouTube Player API."
               )
@@ -150,23 +174,18 @@ function loadYouTubeIframeAPI() {
           }
         }, 10000);
 
-        if (window.YT?.Player) {
-          window.clearTimeout(timeout);
-          resolve();
-        }
-
         return;
       }
 
-      const script =
-        document.createElement("script");
+      const script = document.createElement("script");
 
       script.src =
         "https://www.youtube.com/iframe_api";
+
       script.async = true;
 
       script.onerror = () => {
-        reject(
+        fail(
           new Error(
             "Could not load YouTube Player API."
           )
@@ -180,65 +199,121 @@ function loadYouTubeIframeAPI() {
 }
 
 function formatTime(seconds: number) {
-  const total = Math.max(0, Math.floor(seconds));
+  const total = Math.max(
+    0,
+    Math.floor(seconds)
+  );
+
   const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
+  const minutes = Math.floor(
+    (total % 3600) / 60
+  );
   const secs = total % 60;
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(
-      secs
-    ).padStart(2, "0")}`;
+    return (
+      String(hours) +
+      ":" +
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(secs).padStart(2, "0")
+    );
   }
 
-  return `${minutes}:${String(secs).padStart(2, "0")}`;
+  return (
+    String(minutes) +
+    ":" +
+    String(secs).padStart(2, "0")
+  );
 }
 
-function highlightText(text: string, searchTerm: string) {
-  if (!searchTerm.trim()) {
+function highlightText(
+  text: string,
+  searchTerm: string
+) {
+  const cleanSearch = searchTerm.trim();
+
+  if (!cleanSearch) {
     return text;
   }
 
-  const words = searchTerm
-    .trim()
+  const words = cleanSearch
     .split(/\s+/)
     .filter(Boolean);
 
+  if (words.length === 0) {
+    return text;
+  }
+
+  const escapedWords = words.map((word) =>
+    word.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    )
+  );
+
   const pattern = new RegExp(
-    `(${words.map((word) =>
-      word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    ).join("|")})`,
+    "(" + escapedWords.join("|") + ")",
     "gi"
   );
 
-  return text.split(pattern).map((part, index) =>
-    pattern.test(part) ? (
-      <mark
-        key={index}
-        className="bg-yellow-300 px-0.5 text-black"
-      >
-        {part}
-      </mark>
-    ) : (
-      part
-    )
+  return text.split(pattern).map(
+    (part, index) => {
+      const isMatch = words.some(
+        (word) =>
+          part.toLowerCase() ===
+          word.toLowerCase()
+      );
+
+      if (isMatch) {
+        return (
+          <mark
+            key={index}
+            className="bg-yellow-300 px-0.5 text-black"
+          >
+            {part}
+          </mark>
+        );
+      }
+
+      return part;
+    }
   );
 }
 
 export default function Home() {
   const [search, setSearch] = useState("");
-  const [submittedSearch, setSubmittedSearch] = useState("");
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [results, setResults] = useState<VideoResult[]>([]);
+  const [submittedSearch, setSubmittedSearch] =
+    useState("");
+
+  const [searchHistory, setSearchHistory] =
+    useState<string[]>([]);
+
+  const [results, setResults] =
+    useState<VideoResult[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   const [activeQuote, setActiveQuote] =
     useState<Quote | null>(null);
 
-  const [embedStatus, setEmbedStatus] = useState<
-    "loading" | "playing" | "blocked" | "error"
-  >("loading");
+  const [flagQuote, setFlagQuote] =
+    useState<Quote | null>(null);
+
+  const [flagReason, setFlagReason] =
+    useState("");
+
+  const [flagSending, setFlagSending] =
+    useState(false);
+
+  const [flagSubmitted, setFlagSubmitted] =
+    useState(false);
+
+  const [embedStatus, setEmbedStatus] =
+    useState<
+      "loading" | "playing" | "blocked" | "error"
+    >("loading");
 
   const playerContainerRef =
     useRef<HTMLDivElement | null>(null);
@@ -247,25 +322,41 @@ export default function Home() {
     destroy: () => void;
   } | null>(null);
 
+  const searchRequestRef = useRef(0);
+  const playerRequestRef = useRef(0);
+
   useEffect(() => {
-    const savedHistory = localStorage.getItem(
-      "marshaSearchHistory"
-    );
+    const savedHistory =
+      localStorage.getItem(
+        "marshaSearchHistory"
+      );
 
-    if (savedHistory) {
-      try {
-        const parsed = JSON.parse(savedHistory);
+    if (!savedHistory) {
+      return;
+    }
 
-        if (Array.isArray(parsed)) {
-          setSearchHistory(parsed.slice(0, MAX_HISTORY));
-        }
-      } catch {
-        localStorage.removeItem("marshaSearchHistory");
+    try {
+      const parsed = JSON.parse(savedHistory);
+
+      if (Array.isArray(parsed)) {
+        setSearchHistory(
+          parsed.slice(0, MAX_HISTORY)
+        );
       }
+    } catch {
+      localStorage.removeItem(
+        "marshaSearchHistory"
+      );
     }
   }, []);
 
   useEffect(() => {
+    const playerRequestId =
+      playerRequestRef.current + 1;
+
+    playerRequestRef.current =
+      playerRequestId;
+
     if (!activeQuote) {
       if (playerRef.current) {
         try {
@@ -281,6 +372,7 @@ export default function Home() {
     }
 
     const selectedQuote = activeQuote;
+
     let cancelled = false;
 
     setEmbedStatus("loading");
@@ -289,7 +381,11 @@ export default function Home() {
       try {
         await loadYouTubeIframeAPI();
 
-        if (cancelled) {
+        if (
+          cancelled ||
+          playerRequestRef.current !==
+            playerRequestId
+        ) {
           return;
         }
 
@@ -312,7 +408,7 @@ export default function Home() {
           try {
             playerRef.current.destroy();
           } catch {
-            // Ignore old player cleanup errors.
+            // Ignore cleanup errors.
           }
 
           playerRef.current = null;
@@ -320,9 +416,15 @@ export default function Home() {
 
         container.innerHTML = "";
 
+        /*
+         * Start one second before the transcript
+         * result's start_seconds.
+         */
         const timestamp = Math.max(
           0,
-          Math.floor(selectedQuote.start_seconds) - 1
+          Math.floor(
+            selectedQuote.start_seconds
+          ) - 1
         );
 
         const player = new YT.Player(
@@ -340,13 +442,25 @@ export default function Home() {
 
             events: {
               onReady: () => {
-                if (!cancelled) {
-                  setEmbedStatus("playing");
+                if (
+                  cancelled ||
+                  playerRequestRef.current !==
+                    playerRequestId ||
+                  playerRef.current !== player
+                ) {
+                  return;
                 }
+
+                setEmbedStatus("playing");
               },
 
               onError: (event) => {
-                if (cancelled) {
+                if (
+                  cancelled ||
+                  playerRequestRef.current !==
+                    playerRequestId ||
+                  playerRef.current !== player
+                ) {
                   return;
                 }
 
@@ -367,7 +481,11 @@ export default function Home() {
                   );
 
                   const youtubeUrl =
-                    `https://www.youtube.com/watch?v=${selectedQuote.video_id}&t=${timestamp}s`;
+                    "https://www.youtube.com/watch?v=" +
+                    selectedQuote.video_id +
+                    "&t=" +
+                    String(timestamp) +
+                    "s";
 
                   window.open(
                     youtubeUrl,
@@ -389,6 +507,20 @@ export default function Home() {
           }
         );
 
+        if (
+          cancelled ||
+          playerRequestRef.current !==
+            playerRequestId
+        ) {
+          try {
+            player.destroy();
+          } catch {
+            // Ignore cleanup errors.
+          }
+
+          return;
+        }
+
         playerRef.current = player;
       } catch (error) {
         console.error(
@@ -396,7 +528,11 @@ export default function Home() {
           error
         );
 
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          playerRequestRef.current ===
+            playerRequestId
+        ) {
           setEmbedStatus("error");
         }
       }
@@ -419,57 +555,86 @@ export default function Home() {
     };
   }, [activeQuote]);
 
-  async function performSearch(value: string) {
+  async function performSearch(
+    value: string
+  ) {
     const cleanSearch = value.trim();
+
+    const requestId =
+      searchRequestRef.current + 1;
+
+    searchRequestRef.current =
+      requestId;
 
     setSubmittedSearch(cleanSearch);
     setLoadError("");
 
     if (!cleanSearch) {
       setResults([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    const { data, error } = await supabase.rpc(
-      "search_quotes",
-      {
-        search_term: cleanSearch,
-      }
-    );
-
-    if (error) {
-      console.error(error);
-      setResults([]);
-      setLoadError(
-        "couldn't search the transcript archive."
+    const { data, error } =
+      await supabase.rpc(
+        "search_quotes",
+        {
+          search_term: cleanSearch,
+        }
       );
-      setLoading(false);
+
+    if (
+      requestId !==
+      searchRequestRef.current
+    ) {
       return;
     }
 
-    const grouped = new Map<string, VideoResult>();
+    if (error) {
+      console.error(error);
 
-    for (const quote of (data || []) as Quote[]) {
-      const existing = grouped.get(
-        quote.video_id
+      setResults([]);
+
+      setLoadError(
+        "couldn't search the transcript archive."
       );
+
+      setLoading(false);
+
+      return;
+    }
+
+    const grouped = new Map<
+      string,
+      VideoResult
+    >();
+
+    for (
+      const quote of (data || []) as Quote[]
+    ) {
+      const existing =
+        grouped.get(quote.video_id);
 
       const searchResult: SearchResult = {
         quote,
-        context: quote.context || quote.text,
+        context:
+          quote.context || quote.text,
       };
 
       if (existing) {
-        existing.matches.push(searchResult);
+        existing.matches.push(
+          searchResult
+        );
       } else {
         grouped.set(quote.video_id, {
           video_id: quote.video_id,
           video_title:
             quote.video_title ||
             "Marsha JKT48 Livestream",
-          youtube_url: quote.youtube_url,
+          youtube_url:
+            quote.youtube_url,
           matches: [searchResult],
         });
       }
@@ -478,16 +643,37 @@ export default function Home() {
     const groupedResults =
       Array.from(grouped.values()).sort(
         (a, b) =>
-          getVideoDate(b.video_title) -
-          getVideoDate(a.video_title)
+          getVideoDate(
+            b.video_title
+          ) -
+          getVideoDate(
+            a.video_title
+          )
       );
+
+    if (
+      requestId !==
+      searchRequestRef.current
+    ) {
+      return;
+    }
 
     setResults(groupedResults);
     setLoading(false);
   }
 
-  function handleSearch(value = search) {
+  function handleSearch(
+    value = search
+  ) {
     const cleanSearch = value.trim();
+
+    /*
+     * Remove the old selected video immediately.
+     */
+    setActiveQuote(null);
+    setFlagQuote(null);
+    setFlagReason("");
+    setFlagSubmitted(false);
 
     setSearch(cleanSearch);
     setSubmittedSearch(cleanSearch);
@@ -512,186 +698,372 @@ export default function Home() {
       });
     }
 
-    performSearch(cleanSearch);
+    void performSearch(cleanSearch);
   }
 
   async function handleRandomQuotes() {
-  setLoading(true);
-  setLoadError("");
+    /*
+     * Invalidate any existing search.
+     */
+    const requestId =
+      searchRequestRef.current + 1;
 
-  // Find the latest quote id so we can sample a real contiguous
-  // section of the transcript database.
-  const { data: latestRow, error: latestError } = await supabase
-    .from("quotes")
-    .select("id")
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    searchRequestRef.current =
+      requestId;
 
-  if (latestError || !latestRow) {
-    setLoadError("couldn't find a random quote.");
-    setLoading(false);
-    return;
-  }
+    setActiveQuote(null);
+    setFlagQuote(null);
+    setFlagReason("");
+    setFlagSubmitted(false);
 
-  const maxId = Number(latestRow.id);
-  const startId = Math.max(
-    1,
-    Math.floor(Math.random() * Math.max(1, maxId - 1000))
-  );
+    setLoading(true);
+    setLoadError("");
+    setSubmittedSearch("");
 
-  const { data, error } = await supabase
-    .from("quotes")
-    .select("id, video_id, text")
-    .order("id", { ascending: true })
-    .range(startId - 1, startId + 998);
-
-  if (error || !data || data.length === 0) {
-    setLoadError("couldn't find a random quote.");
-    setLoading(false);
-    return;
-  }
-
-  type QuoteRow = {
-    id: number;
-    video_id: string | null;
-    text: string;
-  };
-
-  const rows = data as QuoteRow[];
-
-  const wordRegex =
-    /[a-zà-ÿ]+(?:['’][a-zà-ÿ]+)?/gi;
-
-  const stopWords = new Set([
-    "yang",
-    "dan",
-    "atau",
-    "dari",
-    "untuk",
-    "dengan",
-    "ini",
-    "itu",
-    "aku",
-    "kamu",
-    "dia",
-    "nya",
-    "ada",
-    "jadi",
-    "kalau",
-    "karena",
-    "sudah",
-    "lebih",
-    "juga",
-    "akan",
-    "sama",
-    "bisa",
-    "banget",
-    "nggak",
-    "enggak",
-    "gak",
-    "ga",
-  ]);
-
-  // Look through real transcript windows.
-  for (let i = 0; i < rows.length; i++) {
-    const currentVideo = rows[i].video_id;
-
-    if (!currentVideo) continue;
-
-    const windowRows = rows.slice(i, i + 5);
+    const {
+      data: latestRow,
+      error: latestError,
+    } = await supabase
+      .from("quotes")
+      .select("id")
+      .order("id", {
+        ascending: false,
+      })
+      .limit(1)
+      .maybeSingle();
 
     if (
-      windowRows.length < 2 ||
-      windowRows.some(
-        (row) => row.video_id !== currentVideo
-      )
+      requestId !==
+      searchRequestRef.current
     ) {
-      continue;
+      return;
     }
 
-    const words = new Set<string>();
-
-    for (const row of windowRows) {
-      const matches = row.text.match(wordRegex) || [];
-
-      for (const word of matches) {
-        const normalized = word.toLowerCase();
-
-        if (
-          normalized.length >= 3 &&
-          !stopWords.has(normalized)
-        ) {
-          words.add(normalized);
-        }
-      }
-    }
-
-    const availableWords = Array.from(words);
-
-    if (availableWords.length < 2) {
-      continue;
-    }
-
-    // Try several random pairs from this actual transcript window.
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const first =
-        availableWords[
-          Math.floor(
-            Math.random() * availableWords.length
-          )
-        ];
-
-      const remaining = availableWords.filter(
-        (word) => word !== first
+    if (latestError || !latestRow) {
+      setLoadError(
+        "couldn't find a random quote."
       );
 
-      if (remaining.length === 0) {
+      setLoading(false);
+
+      return;
+    }
+
+    const maxId =
+      Number(latestRow.id);
+
+    const startId = Math.max(
+      1,
+      Math.floor(
+        Math.random() *
+          Math.max(
+            1,
+            maxId - 1000
+          )
+      )
+    );
+
+    const { data, error } =
+      await supabase
+        .from("quotes")
+        .select(
+          "id, video_id, text"
+        )
+        .order("id", {
+          ascending: true,
+        })
+        .range(
+          startId - 1,
+          startId + 998
+        );
+
+    if (
+      requestId !==
+      searchRequestRef.current
+    ) {
+      return;
+    }
+
+    if (
+      error ||
+      !data ||
+      data.length === 0
+    ) {
+      setLoadError(
+        "couldn't find a random quote."
+      );
+
+      setLoading(false);
+
+      return;
+    }
+
+    type QuoteRow = {
+      id: number;
+      video_id: string | null;
+      text: string;
+    };
+
+    const rows =
+      data as QuoteRow[];
+
+    const wordRegex =
+      /[a-zà-ÿ]+(?:['’][a-zà-ÿ]+)?/gi;
+
+    const stopWords =
+      new Set([
+        "yang",
+        "dan",
+        "atau",
+        "dari",
+        "untuk",
+        "dengan",
+        "ini",
+        "itu",
+        "aku",
+        "kamu",
+        "dia",
+        "nya",
+        "ada",
+        "jadi",
+        "kalau",
+        "karena",
+        "sudah",
+        "lebih",
+        "juga",
+        "akan",
+        "sama",
+        "bisa",
+        "banget",
+        "nggak",
+        "enggak",
+        "gak",
+        "ga",
+      ]);
+
+    for (
+      let i = 0;
+      i < rows.length;
+      i++
+    ) {
+      if (
+        requestId !==
+        searchRequestRef.current
+      ) {
+        return;
+      }
+
+      const currentVideo =
+        rows[i].video_id;
+
+      if (!currentVideo) {
         continue;
       }
 
-      const second =
-        remaining[
-          Math.floor(
-            Math.random() * remaining.length
-          )
-        ];
+      const windowRows =
+        rows.slice(i, i + 5);
 
-      const randomPair = `${first} ${second}`;
+      if (
+        windowRows.length < 2 ||
+        windowRows.some(
+          (row) =>
+            row.video_id !==
+            currentVideo
+        )
+      ) {
+        continue;
+      }
 
-      setSearch(randomPair);
+      const words =
+        new Set<string>();
 
-      setSearchHistory((current) => {
-        const next = [
-          randomPair,
-          ...current.filter(
-            (item) =>
-              item.toLowerCase() !==
-              randomPair.toLowerCase()
-          ),
-        ].slice(0, MAX_HISTORY);
+      for (
+        const row of windowRows
+      ) {
+        const matches =
+          row.text.match(
+            wordRegex
+          ) || [];
 
-        localStorage.setItem(
-          "marshaSearchHistory",
-          JSON.stringify(next)
+        for (
+          const word of matches
+        ) {
+          const normalized =
+            word.toLowerCase();
+
+          if (
+            normalized.length >= 3 &&
+            !stopWords.has(
+              normalized
+            )
+          ) {
+            words.add(
+              normalized
+            );
+          }
+        }
+      }
+
+      const availableWords =
+        Array.from(words);
+
+      if (
+        availableWords.length < 2
+      ) {
+        continue;
+      }
+
+      for (
+        let attempt = 0;
+        attempt < 10;
+        attempt++
+      ) {
+        if (
+          requestId !==
+          searchRequestRef.current
+        ) {
+          return;
+        }
+
+        const first =
+          availableWords[
+            Math.floor(
+              Math.random() *
+                availableWords.length
+            )
+          ];
+
+        const remaining =
+          availableWords.filter(
+            (word) =>
+              word !== first
+          );
+
+        if (
+          remaining.length === 0
+        ) {
+          continue;
+        }
+
+        const second =
+          remaining[
+            Math.floor(
+              Math.random() *
+                remaining.length
+            )
+          ];
+
+        const randomPair =
+          first + " " + second;
+
+        setSearch(randomPair);
+
+        setSearchHistory(
+          (current) => {
+            const next = [
+              randomPair,
+              ...current.filter(
+                (item) =>
+                  item.toLowerCase() !==
+                  randomPair.toLowerCase()
+              ),
+            ].slice(
+              0,
+              MAX_HISTORY
+            );
+
+            localStorage.setItem(
+              "marshaSearchHistory",
+              JSON.stringify(next)
+            );
+
+            return next;
+          }
         );
 
-        return next;
-      });
+        await performSearch(
+          randomPair
+        );
 
-      await performSearch(randomPair);
+        return;
+      }
+    }
+
+    if (
+      requestId !==
+      searchRequestRef.current
+    ) {
       return;
     }
+
+    setLoadError(
+      "couldn't find a random quote."
+    );
+
+    setLoading(false);
   }
 
-  setLoadError("couldn't find a random quote.");
-  setLoading(false);
-}
+  async function handleFlagSubmit() {
+    if (
+      !flagQuote ||
+      !flagReason.trim()
+    ) {
+      return;
+    }
+
+    setFlagSending(true);
+
+    const { error } =
+      await supabase
+        .from("transcript_flags")
+        .insert({
+          video_id:
+            flagQuote.video_id,
+          text: flagQuote.text,
+          reason:
+            flagReason.trim(),
+        });
+
+    if (error) {
+      console.error(
+        "Could not submit flag:",
+        error
+      );
+
+      alert(
+        "Flag error: " +
+          error.message
+      );
+
+      setFlagSending(false);
+
+      return;
+    }
+
+    setFlagSending(false);
+    setFlagSubmitted(true);
+    setFlagReason("");
+  }
+
+  function openFlagForm(
+    quote: Quote
+  ) {
+    setFlagQuote(quote);
+    setFlagSubmitted(false);
+    setFlagReason("");
+  }
+
+  function closeFlagForm() {
+    setFlagQuote(null);
+    setFlagReason("");
+    setFlagSubmitted(false);
+  }
 
   function clearHistory() {
     localStorage.removeItem(
       "marshaSearchHistory"
     );
+
     setSearchHistory([]);
   }
 
@@ -707,8 +1079,6 @@ export default function Home() {
     <main className="min-h-screen bg-[#008080] p-2 font-[Tahoma,Arial,sans-serif] text-black sm:p-4">
       <div className="mx-auto max-w-3xl">
         <div className="overflow-hidden border-2 border-white bg-[#c0c0c0] shadow-[5px_5px_0px_#000]">
-
-          {/* TITLE BAR */}
           <div className="flex h-8 items-center justify-between bg-gradient-to-r from-[#000080] via-[#000080] to-[#1084d0] px-1">
             <div className="flex min-w-0 items-center gap-1.5 px-1 text-xs font-bold text-white">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center border border-white bg-[#c0c0c0] text-[11px] text-black shadow-[1px_1px_0px_#000]">
@@ -744,7 +1114,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* MENU BAR */}
           <div className="flex h-7 items-center border-b border-gray-500 bg-[#c0c0c0] px-2 text-xs">
             <a
               href="/"
@@ -755,11 +1124,8 @@ export default function Home() {
           </div>
 
           <div className="bg-[#d4d0c8] p-2 sm:p-3">
-
-            {/* HERO */}
             <section className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-2 shadow-[1px_1px_0px_#808080]">
               <div className="flex flex-col items-center gap-2.5">
-
                 <div className="w-full max-w-[160px] border-2 border-gray-700 border-r-white border-b-white bg-black p-0.5">
                   <img
                     src="/marsha.gif"
@@ -782,13 +1148,15 @@ export default function Home() {
                   <p className="mt-1 text-[10px] text-gray-500">
                     (transcripts may not be perfect)
                   </p>
+
+                  <p className="mt-1 text-[9px] text-gray-500">
+                    🚩 use the flag button to help improve incorrect transcriptions
+                  </p>
                 </div>
               </div>
             </section>
 
-            {/* SEARCH */}
             <section className="mt-2 border-2 border-gray-500 border-t-white border-l-white bg-[#c0c0c0] p-2 shadow-[1px_1px_0px_#808080]">
-
               <div className="mb-1.5 flex items-center gap-2 text-[11px]">
                 <span className="flex h-4 w-4 items-center justify-center bg-white text-[10px]">
                   🔎
@@ -802,9 +1170,13 @@ export default function Home() {
               <input
                 value={search}
                 onChange={(e) =>
-                  setSearch(e.target.value)
+                  setSearch(
+                    e.target.value
+                  )
                 }
-                onKeyDown={handleKeyDown}
+                onKeyDown={
+                  handleKeyDown
+                }
                 placeholder={
                   'search what she said... try "chipsy" or "kok gitu"'
                 }
@@ -813,21 +1185,26 @@ export default function Home() {
 
               <div className="mt-1.5 flex gap-1.5">
                 <button
-                  onClick={() => handleSearch()}
+                  onClick={() =>
+                    handleSearch()
+                  }
                   className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-4 py-1.5 text-xs font-bold active:border-gray-700 active:border-r-white active:border-b-white"
                 >
                   search
                 </button>
 
                 <button
-                  onClick={handleRandomQuotes}
+                  onClick={
+                    handleRandomQuotes
+                  }
                   className="flex-1 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#d4d0c8] px-3 py-1.5 text-[10px] font-bold active:border-gray-700 active:border-r-white active:border-b-white"
                 >
                   🎲 random quotes
                 </button>
               </div>
 
-              {searchHistory.length > 0 && (
+              {searchHistory.length >
+                0 && (
                 <div className="mt-2 border-t border-gray-500 pt-2">
                   <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold text-gray-700">
                     <span>
@@ -835,7 +1212,9 @@ export default function Home() {
                     </span>
 
                     <button
-                      onClick={clearHistory}
+                      onClick={
+                        clearHistory
+                      }
                       className="font-normal text-gray-600 underline hover:text-black"
                     >
                       clear
@@ -843,26 +1222,33 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-wrap gap-1">
-                    {searchHistory.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => {
-                          setSearch(item);
-                          handleSearch(item);
-                        }}
-                        className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black shadow-[1px_1px_0px_#808080] hover:bg-white"
-                      >
-                        {item}
-                      </button>
-                    ))}
+                    {searchHistory.map(
+                      (item) => (
+                        <button
+                          key={item}
+                          onClick={() => {
+                            setSearch(
+                              item
+                            );
+
+                            handleSearch(
+                              item
+                            );
+                          }}
+                          className="max-w-full truncate border border-gray-500 bg-[#e8e8e8] px-2 py-1 text-[10px] text-black shadow-[1px_1px_0px_#808080] hover:bg-white"
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               )}
             </section>
 
-            {/* RESULTS */}
             <section className="mt-2">
-              {submittedSearch.trim() === "" ? (
+              {submittedSearch.trim() ===
+              "" ? (
                 <div />
               ) : loading ? (
                 <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm shadow-[1px_1px_0px_#808080]">
@@ -882,7 +1268,8 @@ export default function Home() {
                     refresh the page and try again.
                   </div>
                 </div>
-              ) : results.length === 0 ? (
+              ) : results.length ===
+                0 ? (
                 <div className="border-2 border-gray-500 border-t-white border-l-white bg-[#efefef] p-4 text-center text-sm shadow-[1px_1px_0px_#808080]">
                   no quotes found.
                 </div>
@@ -895,150 +1282,299 @@ export default function Home() {
 
                     <span className="text-gray-600">
                       {results.length}{" "}
-                      {results.length === 1
+                      {results.length ===
+                      1
                         ? "video"
                         : "videos"}
                     </span>
                   </div>
 
                   <div className="space-y-2">
-                    {results.map((video) => (
-                      <div
-                        key={video.video_id}
-                        className="border-2 border-gray-600 border-t-white border-l-white bg-[#c0c0c0] p-1.5 shadow-[1px_1px_0px_#808080]"
-                      >
-                        {/* VIDEO HEADER */}
-                        <div className="mb-1.5 flex min-h-6 items-center justify-between gap-2 bg-[#000080] px-2 py-1 text-[10px] font-bold text-white">
-                          <span className="min-w-0 truncate">
-                            📺 {video.video_title}
-                          </span>
+                    {results.map(
+                      (video) => (
+                        <div
+                          key={
+                            video.video_id
+                          }
+                          className="border-2 border-gray-600 border-t-white border-l-white bg-[#c0c0c0] p-1.5 shadow-[1px_1px_0px_#808080]"
+                        >
+                          <div className="mb-1.5 flex min-h-6 items-center justify-between gap-2 bg-[#000080] px-2 py-1 text-[10px] font-bold text-white">
+                            <span className="min-w-0 truncate">
+                              📺{" "}
+                              {
+                                video.video_title
+                              }
+                            </span>
 
-                          <a
-                            href={video.youtube_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 underline hover:text-yellow-300"
-                          >
-                            watch
-                          </a>
-                        </div>
+                            <a
+                              href={
+                                video.youtube_url
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 underline hover:text-yellow-300"
+                            >
+                              watch
+                            </a>
+                          </div>
 
-                        <div className="flex flex-col gap-1.5">
-
-                          {/* EMBEDDED PLAYER */}
-                          {activeQuote?.video_id ===
-                            video.video_id && (
-                            <div className="relative w-full overflow-hidden border-2 border-gray-700 bg-black shadow-[2px_2px_0px_#808080]">
-                              <div
-                                ref={
-                                  playerContainerRef
-                                }
-                                className="aspect-video w-full"
-                              />
-                            </div>
-                          )}
-
-                          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
-
-                            {/* THUMBNAIL */}
-                            {activeQuote?.video_id !==
+                          <div className="flex flex-col gap-1.5">
+                            {activeQuote?.video_id ===
                               video.video_id && (
-                              <a
-                                href={
-                                  video.youtube_url
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group relative block aspect-video w-full shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[165px]"
-                              >
-                                <img
-                                  src={`https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`}
-                                  alt=""
-                                  className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
+                              <div className="relative w-full overflow-hidden border-2 border-gray-700 bg-black shadow-[2px_2px_0px_#808080]">
+                                <div
+                                  ref={
+                                    playerContainerRef
+                                  }
+                                  className="aspect-video w-full"
                                 />
-
-                                <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
-
-                                
-                              </a>
+                              </div>
                             )}
 
-                            {/* MATCH LIST */}
-                            <div className="min-w-0 flex-1">
+                            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start">
+                              {activeQuote?.video_id !==
+                                video.video_id && (
+                                <a
+                                  href={
+                                    video.youtube_url
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="group relative block aspect-video w-full shrink-0 overflow-hidden border-2 border-gray-700 border-r-white border-b-white bg-black sm:max-w-[165px]"
+                                >
+                                  <img
+                                    src={
+                                      "https://i.ytimg.com/vi/" +
+                                      video.video_id +
+                                      "/hqdefault.jpg"
+                                    }
+                                    alt=""
+                                    className="h-full w-full object-cover transition duration-150 group-hover:scale-[1.03]"
+                                  />
 
-                              <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
-                                <span className="font-bold">
-                                  {video.matches.length}{" "}
-                                  matching{" "}
-                                  {video.matches.length ===
-                                  1
-                                    ? "moment"
-                                    : "moments"}
-                                </span>
+                                  <div className="absolute inset-0 bg-black/10 transition group-hover:bg-black/20" />
+                                </a>
+                              )}
 
-                                <span>
-                                  scroll to browse
-                                </span>
-                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex items-center justify-between text-[9px] text-gray-600">
+                                  <span className="font-bold">
+                                    🚩{" "}
+                                    {
+                                      video
+                                        .matches
+                                        .length
+                                    }{" "}
+                                    matching{" "}
+                                    {video.matches
+                                      .length ===
+                                    1
+                                      ? "moment"
+                                      : "moments"}
+                                  </span>
 
-                              <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
-                                {video.matches.map(
-                                  ({
-                                    quote,
-                                    context,
-                                  }) => (
-                                    <button
-                                      type="button"
-                                      key={quote.id}
-                                      onClick={() =>
-                                        setActiveQuote(
-                                          quote
-                                        )
-                                      }
-                                      className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-2 text-left shadow-[1px_1px_0px_#808080] hover:bg-[#ffffe0]"
-                                    >
-                                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                                        <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold shadow-[1px_1px_0px_#808080]">
-                                          {formatTime(
-                                            quote.start_seconds
-                                          )}
-                                        </span>
+                                  <span>
+                                    scroll to browse
+                                  </span>
+                                </div>
 
-                                        <span className="text-[9px] font-bold text-blue-800 underline">
-                                          watch →
-                                        </span>
-                                      </div>
+                                <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1">
+                                  {video.matches.map(
+                                    ({
+                                      quote,
+                                      context,
+                                    }) => (
+                                      <div
+                                        key={
+                                          quote.id
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setActiveQuote(
+                                              quote
+                                            )
+                                          }
+                                          className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-2 text-left shadow-[1px_1px_0px_#808080] hover:bg-[#ffffe0]"
+                                        >
+                                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                                            <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold shadow-[1px_1px_0px_#808080]">
+                                              {formatTime(
+                                                quote.start_seconds
+                                              )}
+                                            </span>
 
-                                      <p className="text-[11px] font-bold leading-relaxed">
-                                        “
-                                        {highlightText(
-                                          quote.text,
-                                          submittedSearch
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[9px] font-bold text-blue-800 underline">
+                                                watch →
+                                              </span>
+
+                                              <span
+                                                role="button"
+                                                tabIndex={
+                                                  0
+                                                }
+                                                onClick={(
+                                                  e
+                                                ) => {
+                                                  e.stopPropagation();
+
+                                                  openFlagForm(
+                                                    quote
+                                                  );
+                                                }}
+                                                onKeyDown={(
+                                                  e
+                                                ) => {
+                                                  if (
+                                                    e.key ===
+                                                      "Enter" ||
+                                                    e.key ===
+                                                      " "
+                                                  ) {
+                                                    e.preventDefault();
+
+                                                    e.stopPropagation();
+
+                                                    openFlagForm(
+                                                      quote
+                                                    );
+                                                  }
+                                                }}
+                                                className="cursor-pointer text-[9px] font-bold text-red-700 underline hover:text-red-900"
+                                              >
+                                                🚩 flag
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <p className="text-[11px] font-bold leading-relaxed">
+                                            “
+                                            {highlightText(
+                                              quote.text,
+                                              submittedSearch
+                                            )}
+                                            ”
+                                          </p>
+
+                                          <div className="mt-1.5 border-t border-dotted border-gray-400 pt-1">
+                                            <p className="text-[9px] leading-relaxed text-gray-600">
+                                              {
+                                                context
+                                              }
+                                            </p>
+                                          </div>
+                                        </button>
+
+                                        {flagQuote?.id ===
+                                          quote.id && (
+                                          <div className="mt-1.5 border-2 border-gray-600 border-t-white border-l-white bg-[#efefef] p-3 shadow-[2px_2px_0px_#808080]">
+                                            {!flagSubmitted ? (
+                                              <>
+                                                <div className="mb-2 text-[11px] font-bold">
+                                                  what's wrong with this transcription?
+                                                </div>
+
+                                                <div className="mb-2 border-2 border-gray-500 border-r-white border-b-white bg-white p-2 text-[10px] text-gray-700">
+                                                  “
+                                                  {
+                                                    flagQuote.text
+                                                  }
+                                                  ”
+                                                </div>
+
+                                                <textarea
+                                                  value={
+                                                    flagReason
+                                                  }
+                                                  onChange={(
+                                                    e
+                                                  ) =>
+                                                    setFlagReason(
+                                                      e
+                                                        .target
+                                                        .value
+                                                    )
+                                                  }
+                                                  placeholder='tolong ganti kata "won bean" jadi "wonbin"'
+                                                  rows={
+                                                    3
+                                                  }
+                                                  className="w-full resize-none border-2 border-gray-700 border-r-white border-b-white bg-white px-2 py-1.5 text-[10px] text-black outline-none placeholder:text-gray-500 focus:bg-[#ffffee]"
+                                                />
+
+                                                <div className="mt-2 flex gap-1.5">
+                                                  <button
+                                                    type="button"
+                                                    onClick={
+                                                      handleFlagSubmit
+                                                    }
+                                                    disabled={
+                                                      flagSending ||
+                                                      !flagReason.trim()
+                                                    }
+                                                    className="border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-3 py-1.5 text-[10px] font-bold disabled:opacity-50"
+                                                  >
+                                                    {flagSending
+                                                      ? "sending..."
+                                                      : "send flag"}
+                                                  </button>
+
+                                                  <button
+                                                    type="button"
+                                                    onClick={
+                                                      closeFlagForm
+                                                    }
+                                                    className="border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#d4d0c8] px-3 py-1.5 text-[10px] font-bold"
+                                                  >
+                                                    cancel
+                                                  </button>
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <div className="text-center">
+                                                <div className="text-[11px] font-bold">
+                                                  🚩 flag submitted
+                                                </div>
+
+                                                <div className="mt-1 text-[10px] text-gray-600">
+                                                  thanks for helping improve the transcripts.
+                                                </div>
+
+                                                <div className="mt-1 text-[9px] text-gray-500">
+                                                  (all reports need to be approved and changed manually)
+                                                </div>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={
+                                                    closeFlagForm
+                                                  }
+                                                  className="mt-2 border-2 border-white border-r-gray-700 border-b-gray-700 bg-[#c0c0c0] px-3 py-1.5 text-[10px] font-bold"
+                                                >
+                                                  close
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
                                         )}
-                                        ”
-                                      </p>
-
-                                      <div className="mt-1.5 border-t border-dotted border-gray-400 pt-1">
-                                        <p className="text-[9px] leading-relaxed text-gray-600">
-                                          {context}
-                                        </p>
                                       </div>
-                                    </button>
-                                  )
-                                )}
+                                    )
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 </div>
               )}
             </section>
           </div>
 
-          {/* STATUS BAR */}
           <div className="min-h-6 border-t border-gray-500 bg-[#c0c0c0] px-2 py-1 text-[9px] text-gray-600">
             <span>
               {loading
@@ -1049,7 +1585,6 @@ export default function Home() {
             </span>
           </div>
 
-          {/* FOOTER */}
           <footer className="border-t-2 border-gray-500 bg-[#c0c0c0] px-3 py-3 text-center text-[11px] text-gray-700">
             <div className="font-bold">
               marsha quotes
