@@ -38,6 +38,7 @@ export default function Game() {
   const last = useRef(0);
   const spawn = useRef(0);
   const snackSpawn = useRef(0);
+  const heartSpawn = useRef(0);
   const id = useRef(1);
   const frame = useRef<number | null>(null);
 
@@ -52,6 +53,7 @@ export default function Game() {
     last.current = 0;
     spawn.current = 0;
     snackSpawn.current = 0;
+    heartSpawn.current = 0;
     setScore(0);
     setHp(3);
     setThings([]);
@@ -100,6 +102,7 @@ export default function Game() {
 
       spawn.current += dt;
       snackSpawn.current += dt;
+      heartSpawn.current += dt;
 
       if (spawn.current > Math.max(0.24, 0.68 - difficulty * 0.14)) {
         spawn.current = 0;
@@ -123,7 +126,8 @@ export default function Game() {
           speed: 145 * difficulty,
         });
       }
-      if (snackSpawn.current > 2.8 && hpRef.current < 3 && Math.random() < 0.35) {
+      if (heartSpawn.current > 3.8 && hpRef.current < 3) {
+        heartSpawn.current = 0;
         heartsRef.current.push({
           id: id.current++,
           x: 10 + Math.random() * (W - 30),
