@@ -189,16 +189,16 @@ export default function Game() {
           <div className="p-2 sm:p-3">
             <div className="relative mx-auto overflow-hidden border-4 border-[#404040] border-r-white border-b-white bg-[#a8c070]"
               style={{ maxWidth: W, aspectRatio: "320 / 520" }}>
-              <div className="absolute left-2 top-2 z-20 border-4 border-[#404040] border-r-white border-b-white bg-[#c0c0c0] px-3 py-2 text-[14px] font-bold leading-none">
+              <div className="absolute left-2 top-2 z-20 px-1 text-[11px] font-bold leading-none text-[#304020]">
                 SCORE {String(score).padStart(4, "0")}
               </div>
 
               <div
                 aria-label={`Health: ${hp} of 3`}
-                className="absolute right-2 top-2 z-20 flex items-center gap-1 border-4 border-[#404040] border-r-white border-b-white bg-[#c0c0c0] px-3 py-2 text-[22px] font-bold leading-none"
+                className="absolute right-2 top-2 z-20 px-1 text-[15px] font-bold leading-none"
               >
-                <span className="text-[#800000]">{"♥".repeat(hp)}</span>
-                <span className="text-[#404040]">{"♡".repeat(3 - hp)}</span>
+                <span className="text-[#304020]">{"♥".repeat(hp)}</span>
+                <span className="text-[#586848]">{"♡".repeat(3 - hp)}</span>
               </div>
 
               {things.map(t => (
