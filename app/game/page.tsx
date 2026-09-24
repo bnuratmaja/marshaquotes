@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
 
-type Thing = { id: number; x: number; y: number; size: number; speed: number; kind: "rock" | "box" };
+type Thing = { id: number; x: number; y: number; size: number; speed: number; kind: "rock" | "box" | "cloud" };
 type Snack = { id: number; x: number; y: number; speed: number };
+type HeartPickup = { id: number; x: number; y: number; speed: number };
 
 const W = 320;
 const H = 520;
@@ -21,6 +22,7 @@ export default function Game() {
   const [closed, setClosed] = useState(false);
   const [things, setThings] = useState<Thing[]>([]);
   const [snacks, setSnacks] = useState<Snack[]>([]);
+  const [heartPickups, setHeartPickups] = useState<HeartPickup[]>([]);
   const [nickname, setNickname] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<{ nickname: string; score: number }[]>([]);
@@ -29,6 +31,7 @@ export default function Game() {
   const keys = useRef({ left: false, right: false });
   const thingsRef = useRef<Thing[]>([]);
   const snacksRef = useRef<Snack[]>([]);
+  const heartsRef = useRef<HeartPickup[]>([]);
   const scoreRef = useRef(0);
   const hpRef = useRef(3);
   const running = useRef(false);
@@ -43,6 +46,7 @@ export default function Game() {
     keys.current = { left: false, right: false };
     thingsRef.current = [];
     snacksRef.current = [];
+    heartsRef.current = [];
     scoreRef.current = 0;
     hpRef.current = 3;
     last.current = 0;
@@ -52,6 +56,7 @@ export default function Game() {
     setHp(3);
     setThings([]);
     setSnacks([]);
+    setHeartPickups([]);
     setOver(false);
     setStarted(true);
     setClosed(false);
@@ -118,6 +123,14 @@ export default function Game() {
           speed: 145 * difficulty,
         });
       }
+      if (snackSpawn.current > 2.8 && hpRef.current < 3 && Math.random() < 0.35) {
+        heartsRef.current.push({
+          id: id.current++,
+          x: 10 + Math.random() * (W - 30),
+          y: H + 30,
+          speed: 125 * difficulty,
+        });
+      }
 
       const px = x.current;
       const py = FALL_Y;
@@ -146,8 +159,20 @@ export default function Game() {
         }
       }
 
+      const nextHearts: HeartPickup[] = [];
+      for (const h of heartsRef.current) {
+        const y = h.y - h.speed * dt;
+        if (hit(px, py, PLAYER, PLAYER, h.x, y, 18, 18)) {
+          hpRef.current = Math.min(3, hpRef.current + 1);
+          scoreRef.current += 25;
+        } else if (y >= -18) {
+          nextHearts.push({ ...h, y });
+        }
+      }
+
       thingsRef.current = nextThings;
       snacksRef.current = nextSnacks;
+      heartsRef.current = nextHearts;
       scoreRef.current += passed * 10;
 
       if (damage) hpRef.current -= damage;
@@ -161,6 +186,7 @@ export default function Game() {
       setHp(hpRef.current);
       setThings([...nextThings]);
       setSnacks([...nextSnacks]);
+      setHeartPickups([...nextHearts]);
 
       if (running.current) frame.current = requestAnimationFrame(loop);
     };
@@ -226,19 +252,54 @@ export default function Game() {
                 <span className="text-[#586848]">{"♡".repeat(3 - hp)}</span>
               </div>
 
+              {/* Simple Game Boy-style vertical world: sky, clouds, tiny hills and trees. */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute left-0 top-0 h-full w-full bg-[#a8c070]" />
+                <div className="absolute left-[-20px] top-[70px] h-3 w-16 bg-[#8b9f58]" />
+                <div className="absolute right-[-18px] top-[180px] h-3 w-20 bg-[#8b9f58]" />
+                <div className="absolute left-[-25px] bottom-[85px] h-3 w-24 bg-[#8b9f58]" />
+                <div className="absolute right-[-30px] bottom-[175px] h-3 w-28 bg-[#8b9f58]" />
+                <div className="absolute left-5 top-16 h-2 w-7 bg-[#c9d88b]" />
+                <div className="absolute left-9 top-14 h-2 w-10 bg-[#c9d88b]" />
+                <div className="absolute right-8 top-28 h-2 w-9 bg-[#c9d88b]" />
+                <div className="absolute right-4 top-26 h-2 w-13 bg-[#c9d88b]" />
+                <div className="absolute left-3 bottom-4 h-12 w-2 bg-[#586848]" />
+                <div className="absolute left-0 bottom-10 h-7 w-10 bg-[#586848]" />
+                <div className="absolute right-4 bottom-5 h-14 w-2 bg-[#586848]" />
+                <div className="absolute right-0 bottom-11 h-8 w-12 bg-[#586848]" />
+              </div>
+
               {things.map(t => (
                 <div key={t.id}
-                  className={t.kind === "rock" ? "absolute border-2 border-[#304020] bg-[#586848]" : "absolute border-2 border-[#302010] bg-[#8b6b3f]"}
-                  style={{ left: t.x, top: t.y, width: t.size, height: t.size }} />
+                  className={
+                    t.kind === "rock"
+                      ? "absolute z-10 border-2 border-[#304020] bg-[#586848]"
+                      : t.kind === "box"
+                        ? "absolute z-10 border-2 border-[#302010] bg-[#8b6b3f]"
+                        : "absolute z-10 border-2 border-[#687850] bg-[#c9d88b]"
+                  }
+                  style={{ left: t.x, top: t.y, width: t.size, height: t.size }} >
+                  {t.kind === "box" && <span className="absolute left-1 top-1 h-1 w-1 bg-[#d0a060]" />}
+                </div>
               ))}
 
               {snacks.map(s => (
-                <div key={s.id} className="absolute flex items-center justify-center border-2 border-[#604020] bg-[#f0b030] text-[11px] font-bold"
-                  style={{ left: s.x, top: s.y, width: 18, height: 18 }}>+</div>
+                <div key={s.id} className="absolute z-20 flex items-center justify-center border-2 border-[#604020] bg-[#f0b030] text-[10px] font-bold"
+                  style={{ left: s.x, top: s.y, width: 18, height: 18 }}>
+                  <span className="absolute left-2 top-0 h-2 w-2 bg-[#586848]" />
+                  <span className="relative top-1">●</span>
+                </div>
               ))}
 
-              <div className="absolute flex items-center justify-center border-2 border-[#202020] bg-[#d8d8c0] text-[9px] font-bold"
-                style={{ left: x.current, top: FALL_Y, width: PLAYER, height: PLAYER }}>M</div>
+              {heartPickups.map(h => (
+                <div key={h.id} className="absolute z-20 text-[18px] font-bold leading-[18px] text-[#304020]"
+                  style={{ left: h.x, top: h.y, width: 18, height: 18 }}>♥</div>
+              ))}
+
+              <div className="absolute z-20 overflow-hidden"
+                style={{ left: x.current - 2, top: FALL_Y - 4, width: 28, height: 32 }}>
+                <img src="/marsha.gif" alt="Marsha" className="h-full w-full object-contain" draggable={false} />
+              </div>
 
               {!started && (
                 <Overlay>
