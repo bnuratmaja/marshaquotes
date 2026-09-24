@@ -18,6 +18,7 @@ export default function Game() {
   const [hp, setHp] = useState(3);
   const [started, setStarted] = useState(false);
   const [over, setOver] = useState(false);
+  const [closed, setClosed] = useState(false);
   const [things, setThings] = useState<Thing[]>([]);
   const [snacks, setSnacks] = useState<Snack[]>([]);
   const [nickname, setNickname] = useState("");
@@ -53,6 +54,7 @@ export default function Game() {
     setSnacks([]);
     setOver(false);
     setStarted(true);
+    setClosed(false);
     running.current = true;
   }, []);
 
@@ -248,7 +250,7 @@ export default function Game() {
                 </Overlay>
               )}
 
-              {over && (
+              {over && !closed && (
                 <Overlay>
                   <div className="text-[16px] font-bold">GAME OVER</div>
                   <div className="mt-2 text-[11px]">SCORE: {score}</div>
@@ -269,6 +271,7 @@ export default function Game() {
                     <div className="mt-2 text-[9px]">SCORE SAVED!</div>
                   )}
                   <button onClick={reset} className="relative z-40 mt-4 border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] px-3 py-2 font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "manipulation" }}>RESTART</button>
+                  <button onClick={() => { running.current = false; setClosed(true); }} className="relative z-40 mt-2 block w-full border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] px-3 py-2 font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "manipulation" }}>CLOSE</button>
                 </Overlay>
               )}
             </div>
