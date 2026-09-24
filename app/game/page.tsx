@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
 
-type Thing = { id: number; x: number; y: number; size: number; speed: number; kind: "rock" | "box" | "cloud" };
+type Thing = { id: number; x: number; y: number; size: number; speed: number; kind: "rock" | "box" };
 type Snack = { id: number; x: number; y: number; speed: number };
 type HeartPickup = { id: number; x: number; y: number; speed: number };
 
@@ -256,53 +256,31 @@ export default function Game() {
                 <span className="text-[#586848]">{"♡".repeat(3 - hp)}</span>
               </div>
 
-              {/* Simple Game Boy-style vertical world: sky, clouds, tiny hills and trees. */}
+
+              {/* Chunky pixel-art world, built to match Marsha's sprite. */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute left-0 top-0 h-full w-full bg-[#a8c070]" />
-                <div className="absolute left-[-20px] top-[70px] h-3 w-16 bg-[#8b9f58]" />
-                <div className="absolute right-[-18px] top-[180px] h-3 w-20 bg-[#8b9f58]" />
-                <div className="absolute left-[-25px] bottom-[85px] h-3 w-24 bg-[#8b9f58]" />
-                <div className="absolute right-[-30px] bottom-[175px] h-3 w-28 bg-[#8b9f58]" />
-                <div className="absolute left-5 top-16 h-2 w-7 bg-[#c9d88b]" />
-                <div className="absolute left-9 top-14 h-2 w-10 bg-[#c9d88b]" />
-                <div className="absolute right-8 top-28 h-2 w-9 bg-[#c9d88b]" />
-                <div className="absolute right-4 top-26 h-2 w-13 bg-[#c9d88b]" />
-                <div className="absolute left-3 bottom-4 h-12 w-2 bg-[#586848]" />
-                <div className="absolute left-0 bottom-10 h-7 w-10 bg-[#586848]" />
-                <div className="absolute right-4 bottom-5 h-14 w-2 bg-[#586848]" />
-                <div className="absolute right-0 bottom-11 h-8 w-12 bg-[#586848]" />
+                <div className="absolute inset-0 bg-[#a8c070]" />
+                <PixelSun />
+                <PixelCloud className="left-8 top-20" />
+                <PixelCloud className="right-7 top-36 scale-75" />
+                <PixelMountain className="left-[-22px] bottom-24" />
+                <PixelMountain className="right-[-28px] bottom-36 scale-90" />
+                <PixelTree className="left-2 bottom-2" />
+                <PixelTree className="right-2 bottom-3 scale-90" />
               </div>
 
-              {things.map(t => (
-                <div key={t.id}
-                  className={
-                    t.kind === "rock"
-                      ? "absolute z-10 border-2 border-[#304020] bg-[#586848]"
-                      : t.kind === "box"
-                        ? "absolute z-10 border-2 border-[#302010] bg-[#8b6b3f]"
-                        : "absolute z-10 border-2 border-[#687850] bg-[#c9d88b]"
-                  }
-                  style={{ left: t.x, top: t.y, width: t.size, height: t.size }} >
-                  {t.kind === "box" && <span className="absolute left-1 top-1 h-1 w-1 bg-[#d0a060]" />}
-                </div>
-              ))}
+              {things.map(t =>
+                t.kind === "rock"
+                  ? <PixelRock key={t.id} x={t.x} y={t.y} size={t.size} />
+                  : <PixelCrate key={t.id} x={t.x} y={t.y} size={t.size} />
+              )}
 
-              {snacks.map(s => (
-                <div key={s.id} className="absolute z-20 flex items-center justify-center border-2 border-[#604020] bg-[#f0b030] text-[10px] font-bold"
-                  style={{ left: s.x, top: s.y, width: 18, height: 18 }}>
-                  <span className="absolute left-2 top-0 h-2 w-2 bg-[#586848]" />
-                  <span className="relative top-1">●</span>
-                </div>
-              ))}
-
-              {heartPickups.map(h => (
-                <div key={h.id} className="absolute z-20 text-[18px] font-bold leading-[18px] text-[#304020]"
-                  style={{ left: h.x, top: h.y, width: 18, height: 18 }}>♥</div>
-              ))}
+              {snacks.map(s => <PixelSnack key={s.id} x={s.x} y={s.y} />)}
+              {heartPickups.map(h => <PixelHeart key={h.id} x={h.x} y={h.y} />)}
 
               <div className="absolute z-20 overflow-hidden"
                 style={{ left: x.current - 2, top: FALL_Y - 4, width: 28, height: 32 }}>
-                <img src="/marsha.gif" alt="Marsha" className="h-full w-full object-contain" draggable={false} />
+                <img src="/marsha.gif" alt="Marsha" className="h-full w-full object-contain [image-rendering:pixelated]" draggable={false} />
               </div>
 
               {!started && (
@@ -378,6 +356,75 @@ export default function Game() {
       `}</style>
     </main>
   );
+}
+
+
+function PixelSun() {
+  return <div className="absolute right-7 top-12 h-5 w-5 bg-[#586848] shadow-[-4px_0_0_#586848,4px_0_0_#586848,0_-4px_0_#586848,0_4px_0_#586848]" />;
+}
+
+function PixelCloud({ className = "" }: { className?: string }) {
+  return <div className={"absolute h-2 w-10 bg-[#c9d88b] " + className}>
+    <span className="absolute left-2 top-[-4px] h-2 w-4 bg-[#c9d88b]" />
+    <span className="absolute right-1 top-[-2px] h-2 w-5 bg-[#c9d88b]" />
+  </div>;
+}
+
+function PixelMountain({ className = "" }: { className?: string }) {
+  return <div className={"absolute h-12 w-24 " + className}>
+    <span className="absolute bottom-0 left-0 h-5 w-24 bg-[#8b9f58]" />
+    <span className="absolute bottom-5 left-4 h-5 w-16 bg-[#8b9f58]" />
+    <span className="absolute bottom-10 left-10 h-5 w-8 bg-[#8b9f58]" />
+    <span className="absolute bottom-7 left-10 h-2 w-3 bg-[#a8c070]" />
+  </div>;
+}
+
+function PixelTree({ className = "" }: { className?: string }) {
+  return <div className={"absolute h-16 w-12 " + className}>
+    <span className="absolute bottom-0 left-5 h-7 w-3 bg-[#586848]" />
+    <span className="absolute bottom-5 left-1 h-6 w-10 bg-[#586848]" />
+    <span className="absolute bottom-9 left-4 h-6 w-5 bg-[#586848]" />
+    <span className="absolute bottom-7 left-0 h-3 w-3 bg-[#586848]" />
+    <span className="absolute bottom-7 right-0 h-3 w-3 bg-[#586848]" />
+  </div>;
+}
+
+function PixelRock({ x, y, size }: { x: number; y: number; size: number }) {
+  const s = Math.max(18, size);
+  return <div className="absolute z-10" style={{ left: x, top: y, width: s, height: s }}>
+    <div className="absolute bottom-0 left-[12%] h-[55%] w-[76%] bg-[#586848]" />
+    <div className="absolute left-[25%] top-[18%] h-[48%] w-[50%] bg-[#586848]" />
+    <div className="absolute left-[25%] top-[18%] h-1 w-[22%] bg-[#8b9f58]" />
+    <div className="absolute bottom-0 left-0 h-[22%] w-[22%] bg-[#304020]" />
+    <div className="absolute bottom-0 right-0 h-[22%] w-[22%] bg-[#304020]" />
+  </div>;
+}
+
+function PixelCrate({ x, y, size }: { x: number; y: number; size: number }) {
+  const s = Math.max(18, size);
+  return <div className="absolute z-10" style={{ left: x, top: y, width: s, height: s }}>
+    <div className="absolute inset-0 bg-[#8b6b3f] border-2 border-[#302010]" />
+    <div className="absolute left-[18%] top-[18%] h-1 w-[64%] bg-[#d0a060]" />
+    <div className="absolute left-[18%] bottom-[18%] h-1 w-[64%] bg-[#604020]" />
+    <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-[#604020]" />
+  </div>;
+}
+
+function PixelSnack({ x, y }: { x: number; y: number }) {
+  return <div className="absolute z-20" style={{ left: x, top: y, width: 18, height: 18 }}>
+    <div className="absolute left-1 top-3 h-3 w-4 bg-[#8b6b3f]" />
+    <div className="absolute left-2 top-1 h-3 w-3 bg-[#f0b030]" />
+    <div className="absolute left-3 top-0 h-1 w-2 bg-[#586848]" />
+    <div className="absolute left-0 top-4 h-1 w-2 bg-[#604020]" />
+    <div className="absolute right-0 top-4 h-1 w-2 bg-[#604020]" />
+  </div>;
+}
+
+function PixelHeart({ x, y }: { x: number; y: number }) {
+  return <div className="absolute z-20" style={{ left: x, top: y, width: 18, height: 18 }}>
+    <div className="absolute left-2 top-1 h-3 w-3 bg-[#304020] shadow-[-3px_0_0_#304020,3px_0_0_#304020,0_-3px_0_#304020]" />
+    <div className="absolute left-3 top-5 h-1 w-2 bg-[#304020]" />
+  </div>;
 }
 
 function Overlay({ children }: { children: ReactNode }) {
