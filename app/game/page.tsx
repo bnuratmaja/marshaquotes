@@ -10,6 +10,7 @@ const W = 320;
 const H = 520;
 const PLAYER = 24;
 const SPEED = 220;
+const FALL_Y = 92;
 
 export default function Game() {
   const [score, setScore] = useState(0);
@@ -95,7 +96,7 @@ export default function Game() {
         thingsRef.current.push({
           id: id.current++,
           x: 8 + Math.random() * (W - size - 16),
-          y: -size,
+          y: H + size,
           size,
           speed: 145 + Math.random() * 55 + difficulty * 18,
           kind: Math.random() > 0.5 ? "rock" : "box",
@@ -107,22 +108,22 @@ export default function Game() {
         snacksRef.current.push({
           id: id.current++,
           x: 8 + Math.random() * (W - 26),
-          y: -20,
+          y: H + 20,
           speed: 120 + difficulty * 12,
         });
       }
 
       const px = x.current;
-      const py = H - 68;
+      const py = FALL_Y;
       const nextThings: Thing[] = [];
       let damage = 0;
       let passed = 0;
 
       for (const t of thingsRef.current) {
-        const y = t.y + t.speed * dt;
+        const y = t.y - t.speed * dt;
         if (hit(px, py, PLAYER, PLAYER, t.x, y, t.size, t.size)) {
           damage++;
-        } else if (y > H + t.size) {
+        } else if (y < -t.size) {
           passed++;
         } else {
           nextThings.push({ ...t, y });
@@ -131,10 +132,10 @@ export default function Game() {
 
       const nextSnacks: Snack[] = [];
       for (const s of snacksRef.current) {
-        const y = s.y + s.speed * dt;
+        const y = s.y - s.speed * dt;
         if (hit(px, py, PLAYER, PLAYER, s.x, y, 18, 18)) {
           hpRef.current = Math.min(3, hpRef.current + 1);
-        } else if (y <= H + 18) {
+        } else if (y >= -18) {
           nextSnacks.push({ ...s, y });
         }
       }
@@ -203,13 +204,13 @@ export default function Game() {
               ))}
 
               <div className="absolute flex items-center justify-center border-2 border-[#202020] bg-[#d8d8c0] text-[9px] font-bold"
-                style={{ left: x.current, bottom: 44, width: PLAYER, height: PLAYER }}>M</div>
+                style={{ left: x.current, top: FALL_Y, width: PLAYER, height: PLAYER }}>M</div>
 
               {!started && (
                 <Overlay>
                   <div className="text-[15px] font-bold">MARSHA FALL</div>
                   <div className="mt-2 text-[10px] leading-relaxed">
-                    move left and right.<br />avoid the falling blocks.<br />grab + snacks to recover HP.
+                    you are falling downward.<br />move left and right.<br />avoid things below you.<br />grab + snacks to recover HP.
                   </div>
                   <button onClick={reset} className="retro-button mt-4">START</button>
                 </Overlay>
@@ -228,7 +229,7 @@ export default function Game() {
               <button aria-label="Move left" className="retro-button py-4 text-2xl" style={{ touchAction: "none" }} {...hold("left")}>◀</button>
               <button aria-label="Move right" className="retro-button py-4 text-2xl" style={{ touchAction: "none" }} {...hold("right")}>▶</button>
             </div>
-            <div className="mt-2 text-center text-[9px] text-[#404040]">mobile: hold ◀ ▶ • desktop: ← →</div>
+            <div className="mt-2 text-center text-[9px] text-[#404040]">fall downward • mobile: hold ◀ ▶ • desktop: ← →</div>
           </div>
         </div>
 
