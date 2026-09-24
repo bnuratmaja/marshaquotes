@@ -1466,9 +1466,11 @@ useEffect(() => {
                                           }
                                           className={
   "group block w-full border-2 border-gray-500 border-t-white border-l-white p-2 text-left shadow-[1px_1px_0px_#808080] " +
-  (activeQuote?.id === quote.id
-    ? "bg-[#ffffe0]"
-    : "bg-white hover:bg-[#ffffe0]")
+  (flagQuote?.id === quote.id
+    ? "bg-[#ffb0b0]"
+    : activeQuote?.id === quote.id
+      ? "bg-[#ffffe0]"
+      : "bg-white hover:bg-[#ffffe0]")
 }
                                         >
                                           <div className="mb-1.5 flex items-center justify-between gap-2">
