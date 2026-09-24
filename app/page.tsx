@@ -1464,7 +1464,12 @@ useEffect(() => {
                                               quote
                                             )
                                           }
-                                          className="group block w-full border-2 border-gray-500 border-t-white border-l-white bg-white p-2 text-left shadow-[1px_1px_0px_#808080] hover:bg-[#ffffe0]"
+                                          className={
+  "group block w-full border-2 border-gray-500 border-t-white border-l-white p-2 text-left shadow-[1px_1px_0px_#808080] " +
+  (activeQuote?.id === quote.id
+    ? "bg-[#ffffe0]"
+    : "bg-white hover:bg-[#ffffe0]")
+}
                                         >
                                           <div className="mb-1.5 flex items-center justify-between gap-2">
                                             <span className="border border-gray-500 bg-[#e8e8e8] px-1.5 py-0.5 text-[9px] font-bold shadow-[1px_1px_0px_#808080]">
