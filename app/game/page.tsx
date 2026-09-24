@@ -20,6 +20,9 @@ export default function Game() {
   const [over, setOver] = useState(false);
   const [things, setThings] = useState<Thing[]>([]);
   const [snacks, setSnacks] = useState<Snack[]>([]);
+  const [nickname, setNickname] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<{ nickname: string; score: number }[]>([]);
 
   const x = useRef(W / 2 - PLAYER / 2);
   const keys = useRef({ left: false, right: false });
@@ -167,6 +170,26 @@ export default function Game() {
     };
   }, [started]);
 
+  const submitScore = async () => {
+    const name = nickname.trim().slice(0, 12);
+    if (!name || submitted) return;
+
+    const response = await fetch("/api/game/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: name, score }),
+    });
+
+    if (!response.ok) return;
+
+    setSubmitted(true);
+    const board = await fetch("/api/game/leaderboard");
+    if (board.ok) {
+      const data = await board.json();
+      setLeaderboard(data?.scores ?? []);
+    }
+  };
+
   const hold = (direction: "left" | "right") => ({
     onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
@@ -229,6 +252,22 @@ export default function Game() {
                 <Overlay>
                   <div className="text-[16px] font-bold">GAME OVER</div>
                   <div className="mt-2 text-[11px]">SCORE: {score}</div>
+                  {!submitted ? (
+                    <div className="mt-3">
+                      <input
+                        aria-label="Nickname"
+                        value={nickname}
+                        onChange={e => setNickname(e.target.value.slice(0, 12))}
+                        onKeyDown={e => { if (e.key === "Enter") submitScore(); }}
+                        maxLength={12}
+                        placeholder="NAME"
+                        className="w-28 border-2 border-[#404040] bg-white px-2 py-1 text-center text-[10px] font-bold uppercase outline-none"
+                      />
+                      <button onClick={submitScore} className="retro-button ml-1 px-2 py-1 text-[10px]">SAVE</button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[9px]">SCORE SAVED!</div>
+                  )}
                   <button onClick={reset} className="retro-button mt-4">RESTART</button>
                 </Overlay>
               )}
@@ -242,7 +281,17 @@ export default function Game() {
           </div>
         </div>
 
-        <div className="mt-3 text-center text-[9px] text-white">phase 1 prototype • no leaderboard yet</div>
+        <div className="mt-3 border-2 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] p-2 text-black">
+          <div className="mb-2 bg-[#000080] px-2 py-1 text-left text-[10px] font-bold text-white">TOP 10</div>
+          <div className="space-y-1 text-[10px]">
+            {leaderboard.length ? leaderboard.map((entry, i) => (
+              <div key={`${entry.nickname}-${entry.score}-${i}`} className="flex justify-between">
+                <span>{String(i + 1).padStart(2, "0")}. {entry.nickname}</span>
+                <span>{String(entry.score).padStart(5, "0")}</span>
+              </div>
+            )) : <div className="text-[#404040]">No scores yet.</div>}
+          </div>
+        </div>
       </div>
 
       <style jsx>{`
