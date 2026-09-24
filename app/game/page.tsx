@@ -244,7 +244,7 @@ export default function Game() {
                   <div className="mt-2 text-[10px] leading-relaxed">
                     you are falling downward.<br />move left and right.<br />avoid things below you.<br />grab + snacks to recover HP.
                   </div>
-                  <button onClick={reset} className="retro-button mt-4">START</button>
+                  <button onClick={reset} className="relative z-40 mt-4 border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] px-3 py-2 font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "manipulation" }}>START</button>
                 </Overlay>
               )}
 
@@ -268,14 +268,14 @@ export default function Game() {
                   ) : (
                     <div className="mt-2 text-[9px]">SCORE SAVED!</div>
                   )}
-                  <button onClick={reset} className="retro-button mt-4">RESTART</button>
+                  <button onClick={reset} className="relative z-40 mt-4 border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] px-3 py-2 font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "manipulation" }}>RESTART</button>
                 </Overlay>
               )}
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button aria-label="Move left" className="retro-button py-4 text-2xl" style={{ touchAction: "none" }} {...hold("left")}>◀</button>
-              <button aria-label="Move right" className="retro-button py-4 text-2xl" style={{ touchAction: "none" }} {...hold("right")}>▶</button>
+              <button aria-label="Move left" className="relative z-30 border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] py-4 text-2xl font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "none" }} {...hold("left")}>◀</button>
+              <button aria-label="Move right" className="relative z-30 border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] py-4 text-2xl font-bold shadow-[2px_2px_0_#000] active:border-[#404040] active:border-r-white active:border-b-white" style={{ touchAction: "none" }} {...hold("right")}>▶</button>
             </div>
             <div className="mt-2 text-center text-[9px] text-[#404040]">fall downward • mobile: hold ◀ ▶ • desktop: ← →</div>
           </div>
@@ -314,7 +314,7 @@ export default function Game() {
 
 function Overlay({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-[#a8c070]/95 p-5 text-center">
+    <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#a8c070]/95 p-5 text-center">
       <div className="border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] p-4 shadow-[3px_3px_0_#000]">
         {children}
       </div>
