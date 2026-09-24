@@ -321,7 +321,8 @@ export default function Home() {
   const playerRef = useRef<{
     destroy: () => void;
   } | null>(null);
-
+const flagConfirmationRef =
+  useRef<HTMLDivElement | null>(null);
   const searchRequestRef = useRef(0);
   const playerRequestRef = useRef(0);
 
@@ -349,7 +350,74 @@ export default function Home() {
       );
     }
   }, []);
+useEffect(() => {
+  if (!flagSubmitted) {
+    return;
+  }
 
+  const timer = window.setTimeout(() => {
+    const element =
+      flagConfirmationRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    /*
+     * Mobile only.
+     */
+    if (window.innerWidth >= 640) {
+      return;
+    }
+
+    /*
+     * Find the nearest scrollable parent.
+     */
+    let parent =
+      element.parentElement;
+
+    while (parent) {
+      if (
+        parent.scrollHeight >
+        parent.clientHeight
+      ) {
+        parent.scrollTo({
+          top:
+            element.offsetTop -
+            parent.clientHeight / 2 +
+            element.offsetHeight / 2,
+          behavior: "smooth",
+        });
+
+        break;
+      }
+
+      parent = parent.parentElement;
+    }
+
+    /*
+     * Also move the mobile page itself
+     * so the confirmation is visible.
+     */
+    const rect =
+      element.getBoundingClientRect();
+
+    const pageTop =
+      window.scrollY +
+      rect.top -
+      window.innerHeight / 2 +
+      rect.height / 2;
+
+    window.scrollTo({
+      top: Math.max(0, pageTop),
+      behavior: "smooth",
+    });
+  }, 300);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [flagSubmitted]);
   useEffect(() => {
     const playerRequestId =
       playerRequestRef.current + 1;
@@ -1469,7 +1537,14 @@ export default function Home() {
 
                                         {flagQuote?.id ===
                                           quote.id && (
-                                          <div className="mt-1.5 border-2 border-gray-600 border-t-white border-l-white bg-[#efefef] p-3 shadow-[2px_2px_0px_#808080]">
+                                          <div
+  ref={
+    flagSubmitted
+      ? flagConfirmationRef
+      : undefined
+  }
+  className="mt-1.5 border-2 border-gray-600 border-t-white border-l-white bg-[#efefef] p-3 shadow-[2px_2px_0px_#808080]"
+>
                                             {!flagSubmitted ? (
                                               <>
                                                 <div className="mb-2 text-[11px] font-bold">
