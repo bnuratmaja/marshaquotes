@@ -235,7 +235,7 @@ export default function Game() {
         <div className="mt-3 text-center text-[9px] text-white">phase 1 prototype • no leaderboard yet</div>
       </div>
 
-      <style jsx>{\`
+      <style jsx>{`
         .retro-button {
           border: 4px solid white;
           border-right-color: #404040;
@@ -248,7 +248,7 @@ export default function Game() {
           border-right-color: white;
           border-bottom-color: white;
         }
-      \`}</style>
+      `}</style>
     </main>
   );
 }
