@@ -11,7 +11,7 @@ const H = 520;
 const PLAYER = 24;
 const SPEED = 220;
 const FALL_Y = 92;
-const SPEED_STEP = 0.22;
+const SPEED_STEP = 0.35;
 
 export default function Game() {
   const [score, setScore] = useState(0);
@@ -91,7 +91,7 @@ export default function Game() {
       spawn.current += dt;
       snackSpawn.current += dt;
 
-      if (spawn.current > Math.max(0.38, 0.85 - difficulty * 0.12)) {
+      if (spawn.current > Math.max(0.24, 0.68 - difficulty * 0.14)) {
         spawn.current = 0;
         const size = 18 + Math.floor(Math.random() * 9);
         thingsRef.current.push({
@@ -99,7 +99,7 @@ export default function Game() {
           x: 8 + Math.random() * (W - size - 16),
           y: H + size,
           size,
-          speed: 145 * difficulty + Math.random() * 55 + difficulty * 18,
+          speed: 175 * difficulty + Math.random() * 65 + difficulty * 22,
           kind: Math.random() > 0.5 ? "rock" : "box",
         });
       }
@@ -110,7 +110,7 @@ export default function Game() {
           id: id.current++,
           x: 8 + Math.random() * (W - 26),
           y: H + 20,
-          speed: 120 * difficulty,
+          speed: 145 * difficulty,
         });
       }
 
@@ -183,7 +183,7 @@ export default function Game() {
       <div className="mx-auto max-w-[390px]">
         <div className="border-4 border-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] shadow-[4px_4px_0_#000]">
           <div className="flex justify-between bg-[#000080] px-2 py-1 text-[12px] font-bold text-white">
-            <span>marsha fall.exe</span><span aria-label={`Health: ${hp} of 3`}>{"♥".repeat(hp)}{"♡".repeat(3 - hp)}</span>
+            <span>marsha fall.exe</span><span>FALL</span>
           </div>
 
           <div className="p-2 sm:p-3">
